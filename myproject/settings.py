@@ -28,8 +28,13 @@ SECRET_KEY = os.environ.get('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',  # localhost와 같은 의미
+    '.ngrok-free.app',  # ngrok v3 무료 주소
+    '.ngrok.io',        # (혹시 구버전 ngrok일까봐)
+    '.ngrok-free.dev',  # <-- !!! 이걸 추가하세요 !!!
+]
 
 # Application definition
 
