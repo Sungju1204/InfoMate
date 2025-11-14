@@ -9,7 +9,7 @@
         </div>
         <nav class="nav">
           <a href="#" class="nav-link">서비스 소개</a>
-          <a href="#" class="nav-link">평가 기록</a>
+          <router-link to="/history" class="nav-link">평가 기록</router-link>
           <a href="#" class="nav-link">문의/Q&A</a>
         </nav>
       </div>
@@ -30,10 +30,21 @@
             v-model="newsUrl"
             placeholder="분석하고 싶은 뉴스 링크를 여기에 붙여넣으세요"
             class="url-input"
+            :disabled="isLoading"
+            @keyup.enter="analyzeNews"
           />
-          <button @click="analyzeNews" class="analyze-btn">
-            신뢰도 분석
+          <button 
+            @click="analyzeNews" 
+            class="analyze-btn"
+            :disabled="isLoading"
+          >
+            {{ isLoading ? '분석 중...' : '신뢰도 분석' }}
           </button>
+        </div>
+        
+        <!-- 에러 메시지 표시 -->
+        <div v-if="error" class="error-message">
+          {{ error }}
         </div>
       </div>
 
@@ -60,20 +71,73 @@
 </template>
 
 <script>
+import { analyzeNews } from '../services/api.js'
+import { validateURL, normalizeURL, extractDomain, isNewsSite } from '../utils/urlParser.js'
+import { historyService } from '../services/historyService.js'
+
 export default {
   name: 'Home',
   data() {
     return {
-      newsUrl: ''
+      newsUrl: '',
+      isLoading: false,
+      error: null
     }
   },
   methods: {
-    analyzeNews() {
-      if (this.newsUrl.trim()) {
-        // 분석 결과 페이지로 이동
-        this.$router.push('/analysis')
-      } else {
+    async analyzeNews() {
+      // 1. 입력 검증
+      if (!this.newsUrl.trim()) {
         alert('뉴스 링크를 입력해주세요.')
+        return
+      }
+
+      // 2. URL 정규화 (문자열 알고리즘 사용)
+      this.newsUrl = normalizeURL(this.newsUrl)
+
+      // 3. URL 검증 (문자열 알고리즘 사용)
+      if (!validateURL(this.newsUrl)) {
+        alert('유효한 URL을 입력해주세요.\n예: https://example.com/news/article')
+        return
+      }
+
+      // 4. 뉴스 사이트 확인 (선택적)
+      const domain = extractDomain(this.newsUrl)
+      if (!isNewsSite(this.newsUrl)) {
+        // 경고만 표시하고 계속 진행
+        console.warn('뉴스 사이트가 아닐 수 있습니다:', domain)
+      }
+
+      // 3. 로딩 시작
+      this.isLoading = true
+      this.error = null
+
+      try {
+        // 5. API 호출
+        const result = await analyzeNews(this.newsUrl)
+        
+        // 6. 분석 기록 저장 (해시 테이블 사용 - O(1) 중복 검사)
+        historyService.addRecord({
+          url: this.newsUrl,
+          data: result.data
+        })
+        
+        // 7. 결과를 라우터 상태로 전달하며 페이지 이동
+        this.$router.push({
+          path: '/analysis',
+          query: { url: this.newsUrl }, // URL은 query에 (새로고침 대응)
+          state: { 
+            analysisResult: result.data // 결과는 state에
+          }
+        })
+      } catch (error) {
+        // 8. 에러 처리
+        this.error = error.message || '분석 중 오류가 발생했습니다.'
+        alert(this.error)
+        console.error('분석 오류:', error)
+      } finally {
+        // 9. 로딩 종료
+        this.isLoading = false
       }
     }
   }
@@ -197,8 +261,30 @@ export default {
   white-space: nowrap;
 }
 
-.analyze-btn:hover {
+.analyze-btn:hover:not(:disabled) {
   background: #2563eb;
+}
+
+.analyze-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.url-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.error-message {
+  margin-top: 1rem;
+  padding: 0.75rem 1.5rem;
+  background: rgba(220, 38, 38, 0.1);
+  color: #dc2626;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .features {
