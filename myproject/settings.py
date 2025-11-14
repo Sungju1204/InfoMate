@@ -34,6 +34,7 @@ ALLOWED_HOSTS = [
     '.ngrok-free.app',  # ngrok v3 무료 주소
     '.ngrok.io',        # (혹시 구버전 ngrok일까봐)
     '.ngrok-free.dev',  # <-- !!! 이걸 추가하세요 !!!
+    '0.0.0.0',       # Docker 컨테이너의 내부 호스트 주소
 ]
 
 # Application definition
@@ -46,9 +47,25 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api',
+    'corsheaders',  # <--- CORS
+    'rest_framework', # <-- 요청 제한
 ]
 
+REST_FRAMEWORK = {
+    'DEFAULT_THROTTLE_CLASSES': [
+        # 익명 사용자 (인증되지 않은 사용자)에 대한 기본 제한 클래스
+        'rest_framework.throttling.AnonRateThrottle', 
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        # 'anon': 시간당 100회 요청으로 제한 (예시)
+        'anon': '100/hour', 
+        # 'user': 로그인된 사용자에 대한 제한 (현재는 필요 없지만 확장 대비)
+        # 'user': '1000/day' 
+    }
+}
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',  # <--- 이 줄이 맨 위에!
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -133,3 +150,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CSRF_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_ALL_ORIGINS = True

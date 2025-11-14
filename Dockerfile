@@ -1,5 +1,7 @@
 # Dockerfile (Playwright 오류 최종 수정본)
 
+# Dockerfile 맨 위
+
 # 1. 베이스 이미지
 FROM python:3.10-slim
 
@@ -27,6 +29,7 @@ COPY . .
 
 # 8. 포트 개방
 EXPOSE 8000
+
 
 # 9. 서버 실행
 CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000"]

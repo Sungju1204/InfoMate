@@ -12,7 +12,8 @@ import torch
 from playwright.sync_api import sync_playwright
 
 from django.http import JsonResponse
-from django.views import View
+from rest_framework.views import APIView # <-- 이 줄을 추가
+from rest_framework.throttling import AnonRateThrottle
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
@@ -176,11 +177,9 @@ def find_publish_date(soup, url):
 
 # --- 6. (FINAL) Django 뷰 클래스 ---
 @method_decorator(csrf_exempt, name='dispatch')
-class AnalyzeView(View):
-    
-    # (!!! NEW !!!) Playwright 컨텍스트를 클래스 변수로 관리 (선택적 최적화)
-    # (매번 띄우는 비용을 줄이기 위해 - 하지만 지금은 단순하게 post마다 띄우겠습니다)
-    
+class AnalyzeView(APIView):
+    throttle_classes = [AnonRateThrottle]
+
     def post(self, request, *args, **kwargs):
         # 1. URL 추출 (기존과 동일)
         try:
@@ -198,37 +197,37 @@ class AnalyzeView(View):
 
         # 3. (!!! NEW !!!) Playwright로 웹 크롤링 및 파싱
         try:
-            # (경고: 이 로직은 매 요청마다 브라우저를 띄우므로 매우 느립니다)
             with sync_playwright() as p:
                 browser = p.chromium.launch(headless=True)
+                # 님의 User-Agent를 유지합니다
                 page = browser.new_page(user_agent='Mozilla/5.0 ... (기존 User-Agent)')
                 
-                # (1) 페이지로 이동 (JS 로드 대기)
-                page.goto(url_to_check, wait_until='load', timeout=15000)
+                # --- (!!!) 여기가 수정되었습니다 (!!!) ---
+                page.goto(
+                    url_to_check, 
+                    # 1. 기준 변경: 'load' -> 'domcontentloaded' (HTML 본문만 로드되면 OK)
+                    wait_until='domcontentloaded', 
+                    # 2. 시간 연장: 15000ms -> 30000ms (30초)
+                    timeout=30000 
+                )
+                # ----------------------------------------
                 
-                # (2) 렌더링된 최종 HTML 가져오기
                 html_content = page.content()
                 browser.close()
 
             # (3) Playwright가 가져온 HTML을 BeautifulSoup에게 전달
             soup = BeautifulSoup(html_content, 'html.parser')
 
-            # --- 4. (최종) 모든 정보 추출 (기존 로직 재사용) ---
-            
-            # (1) 출처 + 날짜
+            # --- 4. (최종) 모든 정보 추출 (이하 동일) ---
             publisher_name = find_publisher_name(soup, domain)
             publish_date = find_publish_date(soup, url_to_check)
-            
-            # (2) 제목 + 본문 (업그레이드된 함수 사용)
             title, text_content = find_article_content(soup)
             
             if not title or not text_content:
                 ai_result = {"error": "기사 제목 또는 본문을 크롤링하지 못했습니다."}
             else:
-                # (3) AI 모델로 예측
                 ai_result = get_fake_news_prediction(title, text_content)
 
-            # (4) 언론사 신뢰도 조회
             trust_result = get_media_trust_score(publisher_name)
 
             # 5. 프론트엔드로 보낼 최종 결과
