@@ -16,10 +16,11 @@ from rest_framework.views import APIView # <-- 이 줄을 추가
 from rest_framework.throttling import AnonRateThrottle
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
+from .trusted_domains import TRUSTED_DOMAINS #신뢰 URL
 
 # --- 1. AI 모델 로딩 (기존과 동일) ---
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
-MODEL_PATH = "./my_fake_news_model" # 님이 훈련한 모델 폴더
+MODEL_PATH = os.environ.get("MODEL_DIRECTORY", "./my_fake_news_model") # 모델 불러오기
 try:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_PATH)
@@ -190,11 +191,19 @@ class AnalyzeView(APIView):
         except json.JSONDecodeError:
             return JsonResponse({"error": "잘못된 JSON 형식입니다."}, status=400)
 
-        # 2. 도메인 추출 (기존과 동일)
+        parsed_url = urlparse(url_to_check)
+        if not all([parsed_url.scheme, parsed_url.netloc]):
+            return JsonResponse({"error": "유효하지 않은 URL 형식입니다. (Scheme/Domain 누락)"}, status=400)
+        
+        # 2-2. 도메인 추출 및 허용 도메인 검증
         domain = get_domain_from_url(url_to_check)
-        if not domain:
-            return JsonResponse({"error": "유효하지 않은 URL입니다."}, status=400)
-
+        
+        # --- (!!! TRUSTED_DOMAINS로 변경된 부분 !!!) ---
+        if domain not in TRUSTED_DOMAINS: 
+            return JsonResponse({
+                "error": f"허용되지 않은 도메인입니다: {domain}",
+                "allowed_domains": TRUSTED_DOMAINS # (선택 사항: 디버깅용으로 제거 가능)
+            }, status=400)
         # 3. (!!! NEW !!!) Playwright로 웹 크롤링 및 파싱
         try:
             with sync_playwright() as p:
