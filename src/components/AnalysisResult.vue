@@ -21,14 +21,24 @@
       <p>분석 중입니다...</p>
     </div>
 
-    <!-- 에러 상태 -->
+    <!-- 에러 상태 (개선됨) -->
     <div v-else-if="error" class="error-container">
       <div class="error-icon">⚠️</div>
-      <h2>오류가 발생했습니다</h2>
-      <p>{{ error }}</p>
-      <button @click="$router.push('/')" class="back-btn">
-        다시 시도하기
-      </button>
+      <div class="error-content">
+        <h2>{{ getErrorTitle(error) }}</h2>
+        <p class="error-message">{{ getErrorMessage(error) }}</p>
+        <p class="error-solution" v-if="getErrorSolution(error)">
+          💡 {{ getErrorSolution(error) }}
+        </p>
+      </div>
+      <div class="error-actions">
+        <button @click="retryAnalysis" class="retry-btn" :disabled="isLoading">
+          🔄 다시 시도
+        </button>
+        <button @click="$router.push('/')" class="back-btn">
+          홈으로 돌아가기
+        </button>
+      </div>
     </div>
 
     <!-- 결과 표시 -->
@@ -202,11 +212,104 @@ export default {
         // 그래프 기반 관련 기사 추천 (DFS/BFS 사용)
         this.findRelatedArticles()
       } catch (error) {
-        this.error = error.message || '분석 결과를 가져올 수 없습니다.'
+        // 에러 처리 개선
+        this.error = error
         console.error('분석 오류:', error)
       } finally {
         this.isLoading = false
       }
+    },
+
+    /**
+     * 재시도 함수
+     * 같은 URL로 다시 분석 시도
+     */
+    async retryAnalysis() {
+      if (this.url) {
+        await this.fetchAnalysis()
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 제목 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string} 에러 제목
+     */
+    getErrorTitle(error) {
+      const message = error?.message || error || ''
+      const errorStr = message.toLowerCase()
+
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '연결 오류'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '시간 초과'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '잘못된 요청'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '서버 오류'
+      } else if (errorStr.includes('cors')) {
+        return 'CORS 오류'
+      } else if (errorStr.includes('404') || errorStr.includes('not found')) {
+        return '페이지를 찾을 수 없음'
+      } else {
+        return '분석 실패'
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 메시지 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string} 사용자 친화적인 에러 메시지
+     */
+    getErrorMessage(error) {
+      const message = error?.message || error || '알 수 없는 오류가 발생했습니다.'
+      const errorStr = message.toLowerCase()
+
+      // 백엔드에서 온 상세 에러 메시지가 있으면 그대로 사용
+      if (error?.message && !errorStr.includes('http') && !errorStr.includes('network')) {
+        return error.message
+      }
+
+      // 일반적인 에러 메시지 변환
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '백엔드 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '요청 형식이 올바르지 않습니다. URL을 확인해주세요.'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '서버에서 오류가 발생했습니다. 백엔드 개발자에게 문의해주세요.'
+      } else if (errorStr.includes('cors')) {
+        return 'CORS 정책으로 인해 요청이 차단되었습니다. 백엔드 CORS 설정을 확인해주세요.'
+      } else if (errorStr.includes('404') || errorStr.includes('not found')) {
+        return '요청한 페이지를 찾을 수 없습니다. URL을 확인해주세요.'
+      } else {
+        return message
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 해결 방법 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string|null} 해결 방법 (없으면 null)
+     */
+    getErrorSolution(error) {
+      const message = error?.message || error || ''
+      const errorStr = message.toLowerCase()
+
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '인터넷 연결을 확인하고, 백엔드 서버가 실행 중인지 확인해주세요.'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '잠시 후 다시 시도하거나, 백엔드 서버의 응답 속도를 확인해주세요.'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '백엔드 개발자에게 오류 내용을 전달해주세요: ' + message
+      } else if (errorStr.includes('cors')) {
+        return '백엔드 개발자에게 CORS 설정을 요청해주세요.'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '올바른 뉴스 URL 형식인지 확인해주세요.'
+      }
+
+      return null
     },
 
     /**
@@ -639,44 +742,114 @@ export default {
   font-size: 1.1rem;
 }
 
+/* 에러 컨테이너 (개선됨) */
 .error-container {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   min-height: 60vh;
-  gap: 1rem;
+  gap: 1.5rem;
   text-align: center;
-  padding: 2rem;
+  padding: 3rem 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 700px;
+  margin: 2rem auto;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .error-icon {
   font-size: 4rem;
 }
 
-.error-container h2 {
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+.error-content {
+  width: 100%;
 }
 
-.error-container p {
-  color: #6b7280;
+.error-container h2 {
+  color: #dc2626;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}
+
+.error-message {
+  color: #991b1b;
+  font-size: 1rem;
+  line-height: 1.6;
   margin-bottom: 1rem;
 }
 
-.back-btn {
+.error-solution {
+  color: #7c2d12;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  background: rgba(220, 38, 38, 0.1);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-top: 1rem;
+  text-align: left;
+}
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+.retry-btn {
   background: #3b82f6;
   color: white;
   border: none;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 2rem;
   border-radius: 8px;
+  font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s;
+  transition: all 0.3s;
+}
+
+.retry-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.back-btn {
+  background: #6b7280;
+  color: white;
+  border: none;
+  padding: 0.75rem 2rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
 }
 
 .back-btn:hover {
-  background: #2563eb;
+  background: #4b5563;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
 }
 
 .evaluation-section {

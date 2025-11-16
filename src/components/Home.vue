@@ -42,9 +42,19 @@
           </button>
         </div>
         
-        <!-- 에러 메시지 표시 -->
-        <div v-if="error" class="error-message">
-          {{ error }}
+        <!-- 에러 메시지 표시 (개선됨) -->
+        <div v-if="error" class="error-container">
+          <div class="error-icon">⚠️</div>
+          <div class="error-content">
+            <h3 class="error-title">{{ getErrorTitle(error) }}</h3>
+            <p class="error-message">{{ getErrorMessage(error) }}</p>
+            <p class="error-solution" v-if="getErrorSolution(error)">
+              💡 {{ getErrorSolution(error) }}
+            </p>
+          </div>
+          <button @click="retryAnalysis" class="retry-btn" :disabled="isLoading">
+            🔄 다시 시도
+          </button>
         </div>
       </div>
 
@@ -81,7 +91,8 @@ export default {
     return {
       newsUrl: '',
       isLoading: false,
-      error: null
+      error: null,
+      lastErrorUrl: null // 재시도를 위한 마지막 URL 저장
     }
   },
   methods: {
@@ -131,14 +142,111 @@ export default {
           }
         })
       } catch (error) {
-        // 8. 에러 처리
-        this.error = error.message || '분석 중 오류가 발생했습니다.'
-        alert(this.error)
+        // 8. 에러 처리 (개선됨)
+        this.error = error
+        this.lastErrorUrl = this.newsUrl // 재시도를 위해 URL 저장
         console.error('분석 오류:', error)
+        // alert 제거 - UI에 표시된 에러 메시지로 충분
       } finally {
         // 9. 로딩 종료
         this.isLoading = false
       }
+    },
+
+    /**
+     * 재시도 함수
+     * 마지막에 실패한 URL로 다시 분석 시도
+     */
+    async retryAnalysis() {
+      if (this.lastErrorUrl) {
+        this.newsUrl = this.lastErrorUrl
+        await this.analyzeNews()
+      } else if (this.newsUrl) {
+        // URL이 있으면 그대로 재시도
+        await this.analyzeNews()
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 제목 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string} 에러 제목
+     */
+    getErrorTitle(error) {
+      const message = error?.message || error || ''
+      const errorStr = message.toLowerCase()
+
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '연결 오류'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '시간 초과'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '잘못된 요청'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '서버 오류'
+      } else if (errorStr.includes('cors')) {
+        return 'CORS 오류'
+      } else if (errorStr.includes('404') || errorStr.includes('not found')) {
+        return '페이지를 찾을 수 없음'
+      } else {
+        return '분석 실패'
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 메시지 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string} 사용자 친화적인 에러 메시지
+     */
+    getErrorMessage(error) {
+      const message = error?.message || error || '알 수 없는 오류가 발생했습니다.'
+      const errorStr = message.toLowerCase()
+
+      // 백엔드에서 온 상세 에러 메시지가 있으면 그대로 사용
+      if (error?.message && !errorStr.includes('http') && !errorStr.includes('network')) {
+        return error.message
+      }
+
+      // 일반적인 에러 메시지 변환
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '백엔드 서버에 연결할 수 없습니다. 네트워크 연결을 확인해주세요.'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요.'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '요청 형식이 올바르지 않습니다. URL을 확인해주세요.'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '서버에서 오류가 발생했습니다. 백엔드 개발자에게 문의해주세요.'
+      } else if (errorStr.includes('cors')) {
+        return 'CORS 정책으로 인해 요청이 차단되었습니다. 백엔드 CORS 설정을 확인해주세요.'
+      } else if (errorStr.includes('404') || errorStr.includes('not found')) {
+        return '요청한 페이지를 찾을 수 없습니다. URL을 확인해주세요.'
+      } else {
+        return message
+      }
+    },
+
+    /**
+     * 에러 타입에 따른 해결 방법 반환
+     * @param {Error} error - 에러 객체
+     * @returns {string|null} 해결 방법 (없으면 null)
+     */
+    getErrorSolution(error) {
+      const message = error?.message || error || ''
+      const errorStr = message.toLowerCase()
+
+      if (errorStr.includes('network') || errorStr.includes('fetch') || errorStr.includes('connection')) {
+        return '인터넷 연결을 확인하고, 백엔드 서버가 실행 중인지 확인해주세요.'
+      } else if (errorStr.includes('timeout') || errorStr.includes('timed out')) {
+        return '잠시 후 다시 시도하거나, 백엔드 서버의 응답 속도를 확인해주세요.'
+      } else if (errorStr.includes('500') || errorStr.includes('internal server')) {
+        return '백엔드 개발자에게 오류 내용을 전달해주세요: ' + message
+      } else if (errorStr.includes('cors')) {
+        return '백엔드 개발자에게 CORS 설정을 요청해주세요.'
+      } else if (errorStr.includes('400') || errorStr.includes('bad request')) {
+        return '올바른 뉴스 URL 형식인지 확인해주세요.'
+      }
+
+      return null
     }
   }
 }
@@ -275,16 +383,89 @@ export default {
   cursor: not-allowed;
 }
 
-.error-message {
-  margin-top: 1rem;
-  padding: 0.75rem 1.5rem;
+/* 에러 메시지 컨테이너 (개선됨) */
+.error-container {
+  margin-top: 1.5rem;
+  padding: 1.5rem;
   background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
-  border-radius: 8px;
-  font-size: 0.9rem;
+  border: 2px solid rgba(220, 38, 38, 0.3);
+  border-radius: 12px;
   max-width: 800px;
   margin-left: auto;
   margin-right: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-icon {
+  font-size: 2rem;
+  text-align: center;
+}
+
+.error-content {
+  flex: 1;
+}
+
+.error-title {
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #dc2626;
+  margin-bottom: 0.5rem;
+}
+
+.error-message {
+  color: #991b1b;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin-bottom: 0.5rem;
+}
+
+.error-solution {
+  color: #7c2d12;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-top: 0.5rem;
+}
+
+.retry-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.3s;
+  align-self: center;
+  margin-top: 0.5rem;
+}
+
+.retry-btn:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.retry-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .features {
