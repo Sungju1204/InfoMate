@@ -42,8 +42,18 @@
           </button>
         </div>
         
+        <!-- 로딩 상태 (스피너 + 프로그레스 바 + 예상 소요 시간) -->
+        <div v-if="isLoading" class="loading-section">
+          <div class="loading-spinner"></div>
+          <div class="progress-container">
+            <div class="progress-bar" :style="{ width: progress + '%' }"></div>
+          </div>
+          <p class="loading-text">분석 중입니다...</p>
+          <p class="estimated-time">예상 소요 시간: 약 {{ estimatedTime }}초</p>
+        </div>
+
         <!-- 에러 메시지 표시 (개선됨) -->
-        <div v-if="error" class="error-container">
+        <div v-if="error && !isLoading" class="error-container">
           <div class="error-icon">⚠️</div>
           <div class="error-content">
             <h3 class="error-title">{{ getErrorTitle(error) }}</h3>
@@ -92,7 +102,11 @@ export default {
       newsUrl: '',
       isLoading: false,
       error: null,
-      lastErrorUrl: null // 재시도를 위한 마지막 URL 저장
+      lastErrorUrl: null, // 재시도를 위한 마지막 URL 저장
+      progress: 0, // 프로그레스 바 진행률 (0-100)
+      estimatedTime: 10, // 예상 소요 시간 (초)
+      progressInterval: null, // 프로그레스 업데이트 인터벌
+      startTime: null // 분석 시작 시간
     }
   },
   methods: {
@@ -122,6 +136,12 @@ export default {
       // 3. 로딩 시작
       this.isLoading = true
       this.error = null
+      this.progress = 0
+      this.startTime = Date.now()
+      this.estimatedTime = 10 // 기본 예상 시간 10초
+
+      // 프로그레스 바 애니메이션 시작 (시뮬레이션)
+      this.startProgressAnimation()
 
       try {
         // 5. API 호출
@@ -149,8 +169,57 @@ export default {
         // alert 제거 - UI에 표시된 에러 메시지로 충분
       } finally {
         // 9. 로딩 종료
+        this.stopProgressAnimation()
         this.isLoading = false
+        this.progress = 0
       }
+    },
+
+    /**
+     * 프로그레스 바 애니메이션 시작
+     * 실제 진행률을 시뮬레이션하여 사용자에게 피드백 제공
+     */
+    startProgressAnimation() {
+      // 기존 인터벌이 있으면 정리
+      if (this.progressInterval) {
+        clearInterval(this.progressInterval)
+      }
+
+      // 초기 진행률 설정
+      this.progress = 0
+
+      // 프로그레스 바 업데이트 (0% → 90%까지 점진적으로 증가)
+      // 실제 완료는 API 응답이 올 때 100%로 설정
+      this.progressInterval = setInterval(() => {
+        if (this.progress < 90) {
+          // 시간이 지날수록 증가 속도가 느려짐 (실제 분석과 유사하게)
+          const increment = Math.max(0.5, (90 - this.progress) * 0.1)
+          this.progress = Math.min(90, this.progress + increment)
+          
+          // 경과 시간에 따라 예상 소요 시간 업데이트
+          if (this.startTime) {
+            const elapsed = (Date.now() - this.startTime) / 1000
+            // 경과 시간의 1.2배를 예상 시간으로 설정 (여유있게)
+            this.estimatedTime = Math.ceil(elapsed * 1.2)
+          }
+        }
+      }, 200) // 200ms마다 업데이트
+    },
+
+    /**
+     * 프로그레스 바 애니메이션 중지
+     */
+    stopProgressAnimation() {
+      if (this.progressInterval) {
+        clearInterval(this.progressInterval)
+        this.progressInterval = null
+      }
+      // 완료 시 100%로 설정
+      this.progress = 100
+      // 잠시 후 0으로 리셋 (다음 분석을 위해)
+      setTimeout(() => {
+        this.progress = 0
+      }, 500)
     },
 
     /**
@@ -247,6 +316,12 @@ export default {
       }
 
       return null
+    }
+  },
+  beforeUnmount() {
+    // 컴포넌트 언마운트 시 인터벌 정리
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval)
     }
   }
 }
@@ -381,6 +456,80 @@ export default {
 .url-input:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* 로딩 섹션 (스피너 + 프로그레스 바 + 예상 소요 시간) */
+.loading-section {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  max-width: 600px;
+  margin-left: auto;
+  margin-right: auto;
+  text-align: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 스피너 애니메이션 */
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(59, 130, 246, 0.2);
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  margin: 0 auto 1.5rem;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 프로그레스 바 컨테이너 */
+.progress-container {
+  width: 100%;
+  height: 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+}
+
+/* 프로그레스 바 */
+.progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #2563eb);
+  border-radius: 4px;
+  transition: width 0.3s ease-out;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.loading-text {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.estimated-time {
+  font-size: 0.9rem;
+  color: #6b7280;
+  font-style: italic;
 }
 
 /* 에러 메시지 컨테이너 (개선됨) */
