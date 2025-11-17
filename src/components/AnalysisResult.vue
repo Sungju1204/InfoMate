@@ -160,10 +160,106 @@
 
         <!-- 정보 평가 기능 -->
         <div class="evaluation-section">
-          <button class="eval-btn primary">평가하고 피드백</button>
-          <button class="eval-btn secondary">제보하기</button>
+          <button @click="showEvaluationModal = true" class="eval-btn primary">
+            평가하고 피드백
+          </button>
+          <button @click="showReportModal = true" class="eval-btn secondary">
+            신고하기
+          </button>
         </div>
       </aside>
+    </div>
+
+    <!-- 평가 모달 -->
+    <div v-if="showEvaluationModal" class="modal-overlay" @click="showEvaluationModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>분석 결과 평가</h3>
+          <button @click="showEvaluationModal = false" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="rating-section">
+            <label>평가 점수</label>
+            <div class="rating-stars">
+              <button
+                v-for="star in 5"
+                :key="star"
+                @click="evaluationRating = star"
+                class="star-btn"
+                :class="{ active: star <= evaluationRating }"
+              >
+                {{ star <= evaluationRating ? '★' : '☆' }}
+              </button>
+            </div>
+            <p class="rating-text">{{ getRatingText(evaluationRating) }}</p>
+          </div>
+          <div class="feedback-section">
+            <label>피드백 (선택사항)</label>
+            <textarea
+              v-model="evaluationFeedback"
+              placeholder="분석 결과에 대한 의견을 남겨주세요..."
+              class="feedback-input"
+              rows="4"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showEvaluationModal = false" class="btn-cancel">취소</button>
+          <button @click="submitEvaluation" class="btn-submit" :disabled="evaluationRating === 0">
+            제출하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 신고 모달 -->
+    <div v-if="showReportModal" class="modal-overlay" @click="showReportModal = false">
+      <div class="modal-content" @click.stop>
+        <div class="modal-header">
+          <h3>부적절한 내용 신고</h3>
+          <button @click="showReportModal = false" class="modal-close">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="report-reason-section">
+            <label>신고 사유</label>
+            <div class="reason-options">
+              <label
+                v-for="reason in reportReasons"
+                :key="reason.value"
+                class="reason-option"
+              >
+                <input
+                  type="radio"
+                  :value="reason.value"
+                  v-model="reportReason"
+                  name="reportReason"
+                />
+                <span>{{ reason.label }}</span>
+              </label>
+            </div>
+          </div>
+          <div class="report-description-section">
+            <label>상세 설명 (선택사항)</label>
+            <textarea
+              v-model="reportDescription"
+              placeholder="신고 사유에 대한 상세한 설명을 입력해주세요..."
+              class="report-input"
+              rows="4"
+            ></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button @click="showReportModal = false" class="btn-cancel">취소</button>
+          <button @click="submitReport" class="btn-submit" :disabled="!reportReason">
+            신고하기
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 성공 메시지 토스트 -->
+    <div v-if="showSuccessToast" class="toast success">
+      {{ successMessage }}
     </div>
   </div>
 </template>
@@ -173,6 +269,7 @@ import { analyzeNews } from '../services/api.js'
 import { Graph } from '../utils/dataStructures.js'
 import { extractKeywords, stringMatch } from '../utils/algorithms.js'
 import { historyService } from '../services/historyService.js'
+import { evaluationService } from '../services/evaluationService.js'
 
 export default {
   name: 'AnalysisResult',
@@ -187,7 +284,25 @@ export default {
       progress: 0, // 프로그레스 바 진행률 (0-100)
       estimatedTime: 10, // 예상 소요 시간 (초)
       progressInterval: null, // 프로그레스 업데이트 인터벌
-      startTime: null // 분석 시작 시간
+      startTime: null, // 분석 시작 시간
+      // 평가 관련
+      showEvaluationModal: false,
+      evaluationRating: 0,
+      evaluationFeedback: '',
+      // 신고 관련
+      showReportModal: false,
+      reportReason: '',
+      reportDescription: '',
+      reportReasons: [
+        { value: 'fake_news', label: '가짜뉴스' },
+        { value: 'misleading', label: '오보/왜곡' },
+        { value: 'inappropriate', label: '부적절한 내용' },
+        { value: 'spam', label: '스팸/광고' },
+        { value: 'other', label: '기타' }
+      ],
+      // 토스트 메시지
+      showSuccessToast: false,
+      successMessage: ''
     }
   },
   async mounted() {
@@ -504,6 +619,97 @@ export default {
       } catch {
         return dateString
       }
+    },
+
+    /**
+     * 평가 제출
+     */
+    submitEvaluation() {
+      if (this.evaluationRating === 0) {
+        alert('평가 점수를 선택해주세요.')
+        return
+      }
+
+      if (!this.url) {
+        alert('URL 정보가 없습니다.')
+        return
+      }
+
+      // 평가 저장
+      evaluationService.addEvaluation({
+        url: this.url,
+        rating: this.evaluationRating,
+        feedback: this.evaluationFeedback
+      })
+
+      // 성공 메시지 표시
+      this.showSuccessToast = true
+      this.successMessage = '평가가 저장되었습니다. 감사합니다!'
+      
+      // 모달 닫기
+      this.showEvaluationModal = false
+      
+      // 입력 초기화
+      this.evaluationRating = 0
+      this.evaluationFeedback = ''
+
+      // 토스트 메시지 자동 닫기
+      setTimeout(() => {
+        this.showSuccessToast = false
+      }, 3000)
+    },
+
+    /**
+     * 신고 제출
+     */
+    submitReport() {
+      if (!this.reportReason) {
+        alert('신고 사유를 선택해주세요.')
+        return
+      }
+
+      if (!this.url) {
+        alert('URL 정보가 없습니다.')
+        return
+      }
+
+      // 신고 저장
+      evaluationService.addReport({
+        url: this.url,
+        reason: this.reportReason,
+        description: this.reportDescription
+      })
+
+      // 성공 메시지 표시
+      this.showSuccessToast = true
+      this.successMessage = '신고가 접수되었습니다. 검토 후 조치하겠습니다.'
+      
+      // 모달 닫기
+      this.showReportModal = false
+      
+      // 입력 초기화
+      this.reportReason = ''
+      this.reportDescription = ''
+
+      // 토스트 메시지 자동 닫기
+      setTimeout(() => {
+        this.showSuccessToast = false
+      }, 3000)
+    },
+
+    /**
+     * 평가 점수에 따른 텍스트 반환
+     */
+    getRatingText(rating) {
+      const texts = {
+        0: '점수를 선택해주세요',
+        1: '매우 불만족',
+        2: '불만족',
+        3: '보통',
+        4: '만족',
+        5: '매우 만족'
+      }
+      return texts[rating] || ''
     }
   },
   beforeUnmount() {
@@ -953,6 +1159,315 @@ export default {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.eval-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.eval-btn.primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.eval-btn.primary:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.eval-btn.secondary {
+  background: #ef4444;
+  color: white;
+}
+
+.eval-btn.secondary:hover {
+  background: #dc2626;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+}
+
+/* 모달 스타일 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: bold;
+  color: #1f2937;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #1f2937;
+}
+
+.modal-body {
+  padding: 1.5rem;
+}
+
+.modal-body label {
+  display: block;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.75rem;
+}
+
+/* 평가 섹션 */
+.rating-section {
+  margin-bottom: 1.5rem;
+}
+
+.rating-stars {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.star-btn {
+  background: none;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  width: 48px;
+  height: 48px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  color: #d1d5db;
+}
+
+.star-btn:hover {
+  border-color: #f59e0b;
+  transform: scale(1.1);
+}
+
+.star-btn.active {
+  border-color: #f59e0b;
+  background: #fef3c7;
+  color: #f59e0b;
+}
+
+.rating-text {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.feedback-section {
+  margin-bottom: 1rem;
+}
+
+.feedback-input,
+.report-input {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-family: inherit;
+  resize: vertical;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.feedback-input:focus,
+.report-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+/* 신고 섹션 */
+.report-reason-section {
+  margin-bottom: 1.5rem;
+}
+
+.reason-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.reason-option {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reason-option:hover {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.reason-option input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.reason-option input[type="radio"]:checked + span {
+  font-weight: 600;
+  color: #3b82f6;
+}
+
+.reason-option span {
+  flex: 1;
+  color: #1f2937;
+}
+
+.report-description-section {
+  margin-bottom: 1rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 1rem;
+  padding: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.btn-cancel,
+.btn-submit {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.btn-cancel:hover {
+  background: #e5e7eb;
+}
+
+.btn-submit {
+  background: #3b82f6;
+  color: white;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+}
+
+.btn-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 토스트 메시지 */
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 2000;
+  animation: slideInRight 0.3s ease-out;
+  max-width: 400px;
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.toast.success {
+  background: #10b981;
+  color: white;
+  font-weight: 500;
 }
 
 .eval-btn {
