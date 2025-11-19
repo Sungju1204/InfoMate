@@ -126,6 +126,27 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+    'ngrok-skip-browser-warning',  # 이 헤더 추가
+]
+
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # 프론트엔드 주소
+]
+
+# 또는 개발 중에는 모든 origin 허용 (개발용만)
+# CORS_ALLOW_ALL_ORIGINS = True
+
+
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
