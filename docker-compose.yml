@@ -1,0 +1,67 @@
+services:
+  # -----------------------------------------------------------------
+  # 1. 백엔드 서비스 (Django + Gunicorn with Reload)
+  # -----------------------------------------------------------------
+  backend:
+    # 빌드 컨텍스트: 현재 디렉토리(OSSBACK/) 기준으로 backend 폴더를 지정
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    
+    # 핵심 수정: Gunicorn에 --reload 옵션을 추가하여 코드 변경 시 자동 재시작되도록 설정
+    command: gunicorn myproject.wsgi:application --bind 0.0.0.0:8000 --reload --timeout 120 
+
+    
+    # 포트 포워딩: 호스트 8080 -> 컨테이너 8000
+    ports:
+      - "8080:8000"
+      
+    # 환경 변수 파일 (backend/.env) 주입
+    env_file:
+      - ./backend/.env
+      
+    # 볼륨 마운트: 호스트 코드를 컨테이너에 실시간 연결
+    volumes:
+      - ./backend:/app
+      - ./backend/.env:/app/.env
+      - ./backend/my_fake_news_model:/app/my_fake_news_model
+      
+    container_name: info_mate_backend
+    restart: always
+
+  # -----------------------------------------------------------------
+  # 2. 프론트엔드 서비스 (Vite/Node.js)
+  # -----------------------------------------------------------------
+  frontend:
+    # 빌드 컨텍스트: 현재 디렉토리(OSSBACK/) 기준으로 frontend 폴더를 지정
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+      
+    # ★★★ 이 줄을 추가했습니다. 컨테이너가 npm run dev를 실행하도록 강제합니다.
+    command: npm run dev
+    
+    # 포트 포워딩: 호스트 3000 -> 컨테이너 3000
+    ports:
+      - "3000:3000"
+    
+    # 볼륨 마운트: 호스트 코드를 컨테이너에 실시간 연결
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules # node_modules는 컨테이너 내부 것을 사용하도록 분리
+      
+    # 프론트엔드 환경 변수 주입 (.env.development 파일)
+    env_file:
+      - ./frontend/.env.development
+      
+    # Watcher 문제 해결을 위한 환경 변수
+    environment:
+      - WATCHPACK_POLLING=true
+      - CHOKIDAR_USEPOLLING=true
+
+    # 백엔드가 먼저 시작되기를 기다립니다.
+    depends_on:
+      - backend
+      
+    container_name: info_mate_frontend
+    restart: always
