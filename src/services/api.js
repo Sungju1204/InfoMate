@@ -2,8 +2,9 @@
 
 // 백엔드 API 주소
 // 환경 변수에서 가져오거나 기본값 사용
+// 로컬 개발: http://localhost:8000/api/analyze
 // ngrok 주소: https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze/
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/analyze'
 
 /**
  * 신뢰도 점수 계산
@@ -19,9 +20,16 @@ function calculateReliabilityScore(backendData) {
     let fakeProbability = 0
     
     if (typeof backendData.ai_prediction === 'object') {
-      fakeProbability = backendData.ai_prediction.fake_probability || 
-                       backendData.ai_prediction.prediction || 
-                       0
+      // 백엔드 형식: { "prediction": "Fake", "fake_percentage": 75.5, "true_percentage": 24.5 }
+      if (backendData.ai_prediction.fake_percentage !== undefined) {
+        // fake_percentage를 0-1 범위로 변환 (예: 75.5 -> 0.755)
+        fakeProbability = backendData.ai_prediction.fake_percentage / 100
+      } else {
+        // 다른 형식 지원
+        fakeProbability = backendData.ai_prediction.fake_probability || 
+                         backendData.ai_prediction.prediction || 
+                         0
+      }
     } else if (typeof backendData.ai_prediction === 'number') {
       // 숫자로 직접 전달된 경우 (0: 진짜, 1: 가짜)
       fakeProbability = backendData.ai_prediction
@@ -47,9 +55,17 @@ function determineIsFake(backendData) {
     let fakeProbability = 0
     
     if (typeof backendData.ai_prediction === 'object') {
-      fakeProbability = backendData.ai_prediction.fake_probability || 
-                         backendData.ai_prediction.prediction || 
-                         0
+      // 백엔드 형식: { "prediction": "Fake", "fake_percentage": 75.5, "true_percentage": 24.5 }
+      if (backendData.ai_prediction.fake_percentage !== undefined) {
+        // fake_percentage를 0-1 범위로 변환
+        fakeProbability = backendData.ai_prediction.fake_percentage / 100
+      } else if (backendData.ai_prediction.prediction === 'Fake') {
+        // prediction이 "Fake" 문자열인 경우
+        return true
+      } else {
+        // 다른 형식 지원
+        fakeProbability = backendData.ai_prediction.fake_probability || 0
+      }
     } else if (typeof backendData.ai_prediction === 'number') {
       fakeProbability = backendData.ai_prediction
     }
@@ -88,17 +104,32 @@ export const analyzeNews = async (url, useCache = true) => {
     }
     
     console.log('API 호출 시작:', url)
+    console.log('API_BASE_URL:', API_BASE_URL)
     
     // 백엔드에 POST 요청 보내기
-    const response = await fetch(`${API_BASE_URL}/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        // ngrok-skip-browser-warning 헤더는 백엔드 CORS 설정 후 사용 가능
-        // 'ngrok-skip-browser-warning': 'true',
-      },
-      body: JSON.stringify({ url }),
-    })
+    // API_BASE_URL이 이미 /api/analyze로 끝나므로, 끝에 슬래시 추가
+    const apiUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`
+    console.log('API 요청 URL:', apiUrl)
+    console.log('요청 본문:', JSON.stringify({ url }))
+    
+    let response
+    try {
+      response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // ngrok-skip-browser-warning 헤더는 백엔드 CORS 설정 후 사용 가능
+          // 'ngrok-skip-browser-warning': 'true',
+        },
+        body: JSON.stringify({ url }),
+      })
+      console.log('응답 상태:', response.status, response.statusText)
+    } catch (fetchError) {
+      console.error('Fetch 오류 상세:', fetchError)
+      console.error('오류 타입:', fetchError.name)
+      console.error('오류 메시지:', fetchError.message)
+      throw new Error(`네트워크 오류: ${fetchError.message}. 백엔드 서버가 http://localhost:8000에서 실행 중인지 확인해주세요.`)
+    }
 
     // HTTP 상태 코드 확인
     if (!response.ok) {
@@ -159,11 +190,37 @@ export const analyzeNews = async (url, useCache = true) => {
             article_content: data.scraped_content || ''
           },
           analysis_details: {
-            ai_prediction: data.ai_prediction || null
+            ai_prediction: data.ai_prediction || null,
+            media_trust: data.media_trust || null
           }
         }
       }
       console.log('API 응답 성공 (변환됨):', formattedData)
+      return formattedData
+    }
+    
+    // 형식 3: 백엔드가 { success: true, data: {...} } 형식으로 응답하는 경우
+    // 백엔드의 data 필드 안에 실제 데이터가 있음
+    if (data.data && (data.data.requested_url || data.data.publisher_name || data.data.ai_prediction)) {
+      const backendData = data.data
+      const formattedData = {
+        success: true,
+        data: {
+          reliability_score: calculateReliabilityScore(backendData),
+          is_fake: determineIsFake(backendData),
+          metadata: {
+            publisher: backendData.publisher_name || '정보 없음',
+            publish_date: backendData.published_date || null,
+            article_title: backendData.scraped_title || '정보 없음',
+            article_content: backendData.scraped_content || ''
+          },
+          analysis_details: {
+            ai_prediction: backendData.ai_prediction || null,
+            media_trust: backendData.media_trust || null
+          }
+        }
+      }
+      console.log('API 응답 성공 (data 필드에서 변환됨):', formattedData)
       return formattedData
     }
     
