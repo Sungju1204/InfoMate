@@ -48,6 +48,20 @@ def get_media_trust_score(publisher_name):
             return MEDIA_TRUST_DB[key]
     return {"rank": None, "score": None, "category": "신뢰도 순위권 외"}
 
+import re
+
+def extract_date_from_url(url):
+    # 예: /2025/11/23/ 또는 /20251123/ 형태 찾기
+    match = re.search(r'(\d{4})[/-](\d{1,2})[/-](\d{1,2})', url)
+    if match:
+        return f"{match.group(1)}-{match.group(2)}-{match.group(3)}"
+    
+    match_compact = re.search(r'/(\d{4})(\d{2})(\d{2})/', url)
+    if match_compact:
+        return f"{match_compact.group(1)}-{match_compact.group(2)}-{match_compact.group(3)}"
+        
+    return None
+
 
 # --- 3. 기사 제목/본문 크롤링 ---
 def find_article_content(soup):
@@ -165,27 +179,88 @@ def find_publisher_name(soup, domain):
 
 
 def find_publish_date(soup, url):
-    try:
-        tag = soup.select_one('span.media_end_head_info_datestamp_time')
-        if tag:
-            return date_parser.parse(tag['data-date-time']).isoformat()
+    date_found = None
 
-        tag = soup.select_one('span.num_date')
-        if tag:
-            return date_parser.parse(tag.get_text()).isoformat()
+    # 1. Meta 태그 확인 (가장 신뢰도 높음)
+    # article:published_time, og:updated_time, pubdate, lastmod 등 다양한 키워드 시도
+    meta_targets = [
+        {'property': 'article:published_time'},
+        {'property': 'og:published_time'},
+        {'property': 'og:updated_time'},
+        {'name': 'pubdate'},
+        {'name': 'date'},
+        {'itemprop': 'datePublished'},
+        {'itemprop': 'dateModified'}
+    ]
 
-        json_ld = soup.find_all('script', {'type': 'application/ld+json'})
-        for s in json_ld:
-            if not s.string:
+    for attr in meta_targets:
+        tag = soup.find('meta', attr)
+        if tag and tag.get('content'):
+            try:
+                date_found = date_parser.parse(tag['content']).isoformat()
+                return date_found # 찾으면 즉시 반환
+            except:
                 continue
-            data = json.loads(s.string)
-            if data.get('datePublished'):
-                return date_parser.parse(data['datePublished']).isoformat()
+
+    # 2. JSON-LD (구조화된 데이터) 확인
+    try:
+        json_ld_scripts = soup.find_all('script', {'type': 'application/ld+json'})
+        for script in json_ld_scripts:
+            if not script.string:
+                continue
+            try:
+                data = json.loads(script.string)
+                # JSON이 리스트일 수도, 딕셔너리일 수도 있음
+                if isinstance(data, list):
+                    for item in data:
+                        if 'datePublished' in item:
+                            return date_parser.parse(item['datePublished']).isoformat()
+                elif isinstance(data, dict):
+                    if 'datePublished' in data:
+                        return date_parser.parse(data['datePublished']).isoformat()
+                    # @graph 구조로 되어있는 경우 (Wordpress 등)
+                    if '@graph' in data:
+                         for item in data['@graph']:
+                            if 'datePublished' in item:
+                                return date_parser.parse(item['datePublished']).isoformat()
+            except:
+                continue
     except:
         pass
 
-    return "날짜 찾기 실패"
+    # 3. HTML 태그 선택자 (사이트별 특화)
+    selectors = [
+        'span.media_end_head_info_datestamp_time', # 네이버 뉴스
+        'span.num_date',                             # 다음 뉴스
+        'div.news_date',                             # 일반적인 언론사
+        'p.date',
+        'span.date',
+        '.input-date',
+        '#date-text',                                # 일부 언론사 ID
+        '.wdate',                                    # 위키트리 등
+        '.t-11',                                     # 조선일보 일부 레이아웃
+    ]
+    
+    for selector in selectors:
+        tags = soup.select(selector)
+        for tag in tags:
+            text = tag.get_text().strip()
+            # 텍스트에 숫자가 포함되어 있어야 날짜로 간주
+            if text and any(c.isdigit() for c in text):
+                try:
+                    # "입력 2025.11.23" 같은 한글 제거 후 파싱 시도
+                    clean_text = re.sub(r'[^\d\-\.\: ]', '', text).strip()
+                    return date_parser.parse(clean_text).isoformat()
+                except:
+                    continue
 
+    # 4. [최후의 수단] URL에서 날짜 추출
+    # 조선일보 URL에는 날짜가 들어있습니다 (court_law/2025/11/23/...)
+    url_date = extract_date_from_url(url)
+    if url_date:
+        return url_date
+
+    return "날짜 찾기 실패"
 
 # --- 6. Django View ---
 @method_decorator(csrf_exempt, name='dispatch')
@@ -231,7 +306,8 @@ class AnalyzeView(APIView):
                 )
 
                 # 안정적인 크롤링 설정: 네트워크 활동이 잠잠해질 때까지 대기
-                page.goto(url_to_check, wait_until='networkidle', timeout=60000)  
+                # 2. timeout=60000 -> 90000 (90초로 늘림)
+                page.goto(url_to_check, wait_until='domcontentloaded', timeout=90000)  
                 html = page.content()
 
         except Exception as e:
