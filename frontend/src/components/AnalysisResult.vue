@@ -624,77 +624,73 @@ export default {
     /**
      * 평가 제출
      */
-    submitEvaluation() {
+    async submitEvaluation() {
       if (this.evaluationRating === 0) {
         alert('평가 점수를 선택해주세요.')
         return
       }
 
-      if (!this.url) {
-        alert('URL 정보가 없습니다.')
-        return
+      // 로딩 중 중복 클릭 방지 (선택사항)
+      // if (this.isLoading) return;
+
+      try {
+        // ⭐ Supabase에 저장 (await 필수)
+        await evaluationService.addEvaluation({
+          url: this.url,
+          rating: this.evaluationRating,
+          feedback: this.evaluationFeedback,
+          // 현재 분석 결과도 같이 저장 (통계용)
+          reliability_score: this.analysisResult?.reliability_score || 0,
+          is_fake: this.analysisResult?.is_fake || false
+        })
+
+        // 성공 메시지
+        this.showSuccessToast = true
+        this.successMessage = '평가가 저장되었습니다. 감사합니다!'
+        this.showEvaluationModal = false
+        
+        // 초기화
+        this.evaluationRating = 0
+        this.evaluationFeedback = ''
+        setTimeout(() => { this.showSuccessToast = false }, 3000)
+
+      } catch (error) {
+        console.error(error)
+        alert('평가 저장 중 오류가 발생했습니다.')
       }
-
-      // 평가 저장
-      evaluationService.addEvaluation({
-        url: this.url,
-        rating: this.evaluationRating,
-        feedback: this.evaluationFeedback
-      })
-
-      // 성공 메시지 표시
-      this.showSuccessToast = true
-      this.successMessage = '평가가 저장되었습니다. 감사합니다!'
-      
-      // 모달 닫기
-      this.showEvaluationModal = false
-      
-      // 입력 초기화
-      this.evaluationRating = 0
-      this.evaluationFeedback = ''
-
-      // 토스트 메시지 자동 닫기
-      setTimeout(() => {
-        this.showSuccessToast = false
-      }, 3000)
     },
 
     /**
      * 신고 제출
      */
-    submitReport() {
+    async submitReport() {
       if (!this.reportReason) {
         alert('신고 사유를 선택해주세요.')
         return
       }
 
-      if (!this.url) {
-        alert('URL 정보가 없습니다.')
-        return
+      try {
+        // ⭐ Supabase에 저장
+        await evaluationService.addReport({
+          url: this.url,
+          reason: this.reportReason,
+          description: this.reportDescription
+        })
+
+        // 성공 메시지
+        this.showSuccessToast = true
+        this.successMessage = '신고가 접수되었습니다.'
+        this.showReportModal = false
+        
+        // 초기화
+        this.reportReason = ''
+        this.reportDescription = ''
+        setTimeout(() => { this.showSuccessToast = false }, 3000)
+
+      } catch (error) {
+        console.error(error)
+        alert('신고 접수 중 오류가 발생했습니다.')
       }
-
-      // 신고 저장
-      evaluationService.addReport({
-        url: this.url,
-        reason: this.reportReason,
-        description: this.reportDescription
-      })
-
-      // 성공 메시지 표시
-      this.showSuccessToast = true
-      this.successMessage = '신고가 접수되었습니다. 검토 후 조치하겠습니다.'
-      
-      // 모달 닫기
-      this.showReportModal = false
-      
-      // 입력 초기화
-      this.reportReason = ''
-      this.reportDescription = ''
-
-      // 토스트 메시지 자동 닫기
-      setTimeout(() => {
-        this.showSuccessToast = false
-      }, 3000)
     },
 
     /**
