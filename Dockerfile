@@ -15,7 +15,7 @@ WORKDIR /app
 # 4. (!!!) 라이브러리 설치 (순서 변경)
 # requirements.txt를 먼저 복사하고 pip를 먼저 실행합니다.
 COPY requirements.txt .
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 5. (!!! 여기가 핵심 수정 !!!)
 # Playwright가 필요로 하는 모든 '시스템 라이브러리'를 자동으로 설치

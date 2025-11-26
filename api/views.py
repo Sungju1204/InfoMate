@@ -20,6 +20,56 @@ from rest_framework.throttling import AnonRateThrottle
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 
+from openai import OpenAI
+
+# API 키 설정 (settings.py나 .env에서 가져옴)
+client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+def get_gpt_prediction(title, text):
+    """GPT 모델 분석"""
+    if not client:
+        return {"error": "API 키 설정 오류", "prediction": "Error"}
+        
+    try:
+        truncated_text = text[:3000] # 토큰 절약
+        
+        # ★★★ [수정됨] 점수 기준을 '신뢰도'로 변경 ★★★
+        system_prompt = """
+        당신은 뉴스 기사의 신뢰도를 평가하는 '팩트체크 AI'입니다.
+        제공된 기사를 분석하여 JSON 형식으로 답하세요.
+        
+        [점수 기준]
+        - 점수(score)는 0~100점 사이의 '신뢰도 점수'입니다.
+        - 100점에 가까울수록: 사실에 기반함, 출처 명확, 객관적 (진짜 뉴스)
+        - 0점에 가까울수록: 거짓 정보, 선동, 근거 없음 (가짜 뉴스)
+        
+        [응답 형식]
+        {
+            "prediction": "True" (신뢰할 수 있음) 또는 "Fake" (신뢰할 수 없음),
+            "score": 0~100 (높을수록 진실),
+            "reason": "판단 이유를 한국어로 명확하게 2문장 요약"
+        }
+        """
+        
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"제목: {title}\n본문: {truncated_text}"}
+            ],
+            response_format={"type": "json_object"},
+            temperature=0.1 # 분석은 냉정하게
+        )
+        
+        result = json.loads(response.choices[0].message.content)
+        result["model_type"] = "GPT-4o-mini"
+        return result
+        
+    except Exception as e:
+        print(f"GPT Error: {e}")
+        return {"error": str(e), "prediction": "Error"}
+
+        
 # --- 1. AI 모델 로딩 ---
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 MODEL_PATH = os.environ.get("MODEL_DIRECTORY", "./my_fake_news_model") 
@@ -357,7 +407,7 @@ class AnalyzeView(APIView):
 
         # AI 분석 실행
         ai_result = get_fake_news_prediction(title, text_content)
-
+        gpt_result = get_gpt_prediction(title, text_content)
         # 정상 응답
         return JsonResponse({
             "success": True,
@@ -368,6 +418,16 @@ class AnalyzeView(APIView):
                 "scraped_title": title,
                 "ai_prediction": ai_result,
                 "media_trust": get_media_trust_score(publisher_name),
+
+                # GPT 결과가 여기에 들어갑니다
+                "gpt_model": {
+                        "score": gpt_result.get('score', 0), 
+                        "reason": gpt_result.get('reason', "분석 결과를 가져오지 못했습니다."),
+                        "prediction": gpt_result.get('prediction', "Unknown")         # 판단 이유
+                },
+
                 "cached": False
             }
         }, status=200)
+
+
