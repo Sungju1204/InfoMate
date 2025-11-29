@@ -288,10 +288,14 @@ def find_publisher_name(soup, domain):
 def find_publish_date(soup, url):
     meta_targets = ['article:published_time', 'og:published_time', 'pubdate']
     for attr in meta_targets:
-        tag = soup.find('meta', property=attr) or soup.find('meta', name=attr)
+        # [수정] property=... 와 name=... 을 attrs 딕셔너리로 감싸서 충돌 방지
+        tag = soup.find('meta', attrs={'property': attr}) or \
+            soup.find('meta', attrs={'name': attr})
+            
         if tag and tag.get('content'):
             try: return date_parser.parse(tag['content']).isoformat()
             except: continue
+            
     url_date = extract_date_from_url(url)
     if url_date: return url_date
     return "날짜 찾기 실패"
