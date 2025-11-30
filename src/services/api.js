@@ -6,6 +6,10 @@
 // ngrok 주소: https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze/
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/analyze'
 
+// 모킹 모드 활성화 (백엔드 연결 없이 프론트엔드 개발용)
+// true로 설정하면 실제 API 호출 대신 모킹 데이터를 반환합니다
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true' || true // 기본값: true (모킹 모드)
+
 /**
  * 신뢰도 점수 계산
  * 백엔드 응답 데이터를 기반으로 신뢰도 점수 계산
@@ -78,6 +82,75 @@ function determineIsFake(backendData) {
 }
 
 /**
+ * 모킹 데이터 생성 함수
+ * 백엔드 연결 없이 개발할 때 사용하는 샘플 데이터
+ */
+function generateMockData(url) {
+  // URL에 따라 다른 결과 반환 (테스트용)
+  const isFakeNews = url.includes('fake') || url.includes('test')
+  const fakePercentage = isFakeNews ? Math.random() * 30 + 60 : Math.random() * 30 + 10 // 60-90 또는 10-40
+  const truePercentage = 100 - fakePercentage
+  
+  return {
+    success: true,
+    data: {
+      reliability_score: Math.round(truePercentage),
+      is_fake: isFakeNews,
+      metadata: {
+        publisher: extractDomainFromUrl(url) || '조선일보',
+        publish_date: new Date().toISOString().split('T')[0],
+        article_title: '샘플 뉴스 기사 제목입니다',
+        article_content: '이것은 모킹 데이터입니다. 백엔드 연결 없이 프론트엔드 개발을 위해 사용됩니다.'
+      },
+      analysis_details: {
+        ai_prediction: {
+          prediction: isFakeNews ? 'Fake' : 'True',
+          fake_percentage: Math.round(fakePercentage * 10) / 10,
+          true_percentage: Math.round(truePercentage * 10) / 10
+        },
+        media_trust: {
+          trust_score: Math.round(truePercentage),
+          reliability: isFakeNews ? 'Low' : 'High'
+        },
+        // GPT 의견 및 점수
+        gpt_opinion: isFakeNews 
+          ? '이 뉴스는 가짜뉴스일 가능성이 높습니다. 주의가 필요합니다.' 
+          : '이 뉴스는 신뢰할 수 있는 정보입니다.',
+        gpt_score: Math.round(truePercentage),
+        // 지도학습AI 모델 점수
+        ai_model_score: Math.round(truePercentage),
+        // 발행일 점수 (최근일수록 높음)
+        publish_date_score: 85,
+        // 자극적인 단어
+        sensational_words: isFakeNews ? ['충격', '폭로', '발각'] : [],
+        sensational_words_score: isFakeNews ? 30 : 85,
+        // 광고성/상업성
+        advertisement: !isFakeNews ? false : { level: 'medium' },
+        advertisement_score: isFakeNews ? 45 : 85,
+        // 크로스 체크 정보
+        cross_check: {
+          verified_sources: isFakeNews ? 1 : 4,
+          status: isFakeNews ? 'unverified' : 'verified'
+        },
+        cross_check_score: isFakeNews ? 35 : 85
+      }
+    }
+  }
+}
+
+/**
+ * URL에서 도메인 추출
+ */
+function extractDomainFromUrl(url) {
+  try {
+    const urlObj = new URL(url)
+    return urlObj.hostname.replace('www.', '')
+  } catch {
+    return null
+  }
+}
+
+/**
  * 뉴스 URL을 분석하는 함수
  * 캐싱 기능 포함: 같은 URL 재요청 시 캐시된 결과 반환 (해시 테이블 사용)
  * 
@@ -87,6 +160,19 @@ function determineIsFake(backendData) {
  */
 export const analyzeNews = async (url, useCache = true) => {
   try {
+    // 모킹 모드: 실제 API 호출 없이 모킹 데이터 반환
+    if (USE_MOCK_DATA) {
+      console.log('🔧 모킹 모드: 실제 API 호출 없이 모킹 데이터 반환')
+      console.log('📝 요청 URL:', url)
+      
+      // 약간의 지연 시뮬레이션 (실제 API 호출 느낌)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      const mockData = generateMockData(url)
+      console.log('✅ 모킹 데이터 반환:', mockData)
+      return mockData
+    }
+    
     // 캐싱: 해시 테이블을 사용하여 같은 URL 재요청 방지
     // 시간 복잡도: O(1) - 해시 테이블 조회
     if (useCache) {

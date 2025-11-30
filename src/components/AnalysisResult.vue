@@ -9,7 +9,6 @@
         </div>
         <nav class="nav">
           <a href="#" class="nav-link">서비스 소개</a>
-          <router-link to="/history" class="nav-link">평가 기록</router-link>
           <a href="#" class="nav-link">문의/Q&A</a>
         </nav>
       </div>
@@ -82,51 +81,144 @@
         <section class="analysis-details">
           <h2>상세 분석 내역</h2>
           <div class="analysis-cards">
-            <div class="analysis-card">
-              <div class="card-icon">🏢</div>
+            <!-- GPT 의견+점수 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getGPTScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getGPTScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🤖</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>GPT 의견</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getGPTScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getGPTScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>출처 신뢰도</h3>
-                <p>{{ analysisResult.metadata?.publisher || '정보 없음' }}</p>
+                <p>{{ getGPTOpinion(analysisResult) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card">
-              <div class="card-icon">📅</div>
+
+            <!-- 지도학습AI 모델 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getAIModelScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getAIModelScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🧠</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>지도학습AI 모델</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getAIModelScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getAIModelScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>작성일/발행일</h3>
+                <p>{{ getAIModelPrediction(analysisResult) }}</p>
+              </div>
+            </div>
+
+            <!-- 발행일 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getPublishDateScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getPublishDateScore(analysisResult)) + '15' }">
+                  <div class="card-icon">📅</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>발행일</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getPublishDateScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getPublishDateScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
                 <p>{{ formatDate(analysisResult.metadata?.publish_date) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card" v-if="analysisResult.analysis_details?.bias">
-              <div class="card-icon">⚖️</div>
+
+            <!-- 자극적인 단어 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getSensationalWordsScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getSensationalWordsScore(analysisResult)) + '15' }">
+                  <div class="card-icon">⚠️</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>자극적인 단어</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getSensationalWordsScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getSensationalWordsScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>정보의 편향성</h3>
-                <p>{{ 
-                  analysisResult.analysis_details.bias === 'neutral' ? '중립적인 관점에서 작성된 기사입니다' :
-                  analysisResult.analysis_details.bias === 'left' ? '진보적 관점이 포함되어 있습니다' :
-                  analysisResult.analysis_details.bias === 'right' ? '보수적 관점이 포함되어 있습니다' :
-                  '편향성 정보 없음'
-                }}</p>
+                <p>{{ getSensationalWords(analysisResult) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card warning" v-if="analysisResult.analysis_details?.advertisement">
-              <div class="card-icon">⚠️</div>
+
+            <!-- 미디어/도메인 신뢰도 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getMediaTrustScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getMediaTrustScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🏢</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>미디어/도메인 신뢰도</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getMediaTrustScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getMediaTrustScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>광고/상업성</h3>
-                <p>일부 상업적 내용이 포함되어 있습니다</p>
+                <p>{{ analysisResult.metadata?.publisher || '정보 없음' }}</p>
+              </div>
+            </div>
+
+            <!-- 광고성/상업성 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getAdvertisementScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getAdvertisementScore(analysisResult)) + '15' }">
+                  <div class="card-icon">💰</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>광고성/상업성</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getAdvertisementScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getAdvertisementScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
+                <p>{{ getAdvertisementText(analysisResult) }}</p>
+              </div>
+            </div>
+
+            <!-- 크로스 체크 정보/신뢰성 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getCrossCheckScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getCrossCheckScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🔍</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>크로스 체크 정보</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getCrossCheckScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getCrossCheckScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
+                <p>{{ getCrossCheckInfo(analysisResult) }}</p>
               </div>
             </div>
           </div>
         </section>
-      </div>
 
-      <!-- 사이드바 -->
-      <aside class="sidebar">
-        <!-- 관련 기사 -->
-        <div class="sidebar-section">
-          <h3>관련 기사</h3>
+        <!-- 평가 기록 섹션 -->
+        <section class="history-section">
+          <router-link to="/history" class="history-link-btn">
+            평가 기록 보기 →
+          </router-link>
+        </section>
+
+        <!-- 관련 기사 섹션 -->
+        <section class="related-articles-section">
+          <h2>관련 기사</h2>
           <div class="article-list">
             <div class="article-item" v-for="(article, index) in relatedArticles" :key="index">
               <div class="article-thumbnail">📰</div>
@@ -139,35 +231,20 @@
               관련 기사가 없습니다.
             </div>
           </div>
-        </div>
-
-        <!-- 함께 보면 좋은 글 -->
-        <div class="sidebar-section">
-          <h3>함께 보면 좋은 글</h3>
-          <div class="article-list">
-            <div class="article-item" v-for="(article, index) in recommendedArticles" :key="index">
-              <div class="article-thumbnail">📖</div>
-              <div class="article-content">
-                <h4>{{ article.title || '추천 기사 제목' }}</h4>
-                <p>{{ article.description || '추천 기사 설명...' }}</p>
-              </div>
-            </div>
-            <div v-if="recommendedArticles.length === 0" class="no-articles">
-              추천 기사가 없습니다.
-            </div>
-          </div>
-        </div>
+        </section>
 
         <!-- 정보 평가 기능 -->
-        <div class="evaluation-section">
-          <button @click="showEvaluationModal = true" class="eval-btn primary">
-            평가하고 피드백
-          </button>
-          <button @click="showReportModal = true" class="eval-btn secondary">
-            신고하기
-          </button>
-        </div>
-      </aside>
+        <section class="evaluation-section-wrapper">
+          <div class="evaluation-section">
+            <button @click="showEvaluationModal = true" class="eval-btn primary">
+              평가하고 피드백
+            </button>
+            <button @click="showReportModal = true" class="eval-btn secondary">
+              신고하기
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- 평가 모달 -->
@@ -622,6 +699,227 @@ export default {
     },
 
     /**
+     * GPT 의견 텍스트 반환
+     */
+    getGPTOpinion(result) {
+      if (result.analysis_details?.gpt_opinion) {
+        return result.analysis_details.gpt_opinion
+      }
+      // 기본값: AI 예측 결과 기반
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.prediction === 'Fake') {
+          return '가짜뉴스일 가능성이 높습니다. 주의가 필요합니다.'
+        }
+        return '신뢰할 수 있는 뉴스로 판단됩니다.'
+      }
+      return 'GPT 분석 결과를 확인할 수 없습니다.'
+    },
+
+    /**
+     * GPT 점수 계산 (0-100)
+     */
+    getGPTScore(result) {
+      if (result.analysis_details?.gpt_score !== undefined) {
+        return Math.round(result.analysis_details.gpt_score)
+      }
+      // AI 예측 결과 기반으로 점수 계산
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.true_percentage !== undefined) {
+          return Math.round(pred.true_percentage)
+        }
+      }
+      return result.reliability_score || 50
+    },
+
+    /**
+     * 지도학습AI 모델 예측 텍스트 반환
+     */
+    getAIModelPrediction(result) {
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.prediction === 'Fake') {
+          return `가짜뉴스로 판단됨 (가짜 확률: ${pred.fake_percentage || 0}%)`
+        }
+        return `진짜뉴스로 판단됨 (진짜 확률: ${pred.true_percentage || 0}%)`
+      }
+      return 'AI 모델 분석 결과 없음'
+    },
+
+    /**
+     * 지도학습AI 모델 점수 계산 (0-100)
+     */
+    getAIModelScore(result) {
+      if (result.analysis_details?.ai_model_score !== undefined) {
+        return Math.round(result.analysis_details.ai_model_score)
+      }
+      // AI 예측 결과 기반으로 점수 계산
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.true_percentage !== undefined) {
+          return Math.round(pred.true_percentage)
+        }
+      }
+      return result.reliability_score || 50
+    },
+
+    /**
+     * 발행일 점수 계산 (0-100)
+     * 최근일수록 높은 점수
+     */
+    getPublishDateScore(result) {
+      if (result.analysis_details?.publish_date_score !== undefined) {
+        return Math.round(result.analysis_details.publish_date_score)
+      }
+      const publishDate = result.metadata?.publish_date
+      if (!publishDate) return 30 // 날짜 정보 없으면 낮은 점수
+      
+      try {
+        const date = new Date(publishDate)
+        const now = new Date()
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+        
+        // 최근 7일 이내: 90점, 30일 이내: 70점, 90일 이내: 50점, 그 이상: 30점
+        if (diffDays <= 7) return 90
+        if (diffDays <= 30) return 70
+        if (diffDays <= 90) return 50
+        return 30
+      } catch {
+        return 50
+      }
+    },
+
+    /**
+     * 자극적인 단어 텍스트 반환
+     */
+    getSensationalWords(result) {
+      if (result.analysis_details?.sensational_words) {
+        const words = result.analysis_details.sensational_words
+        if (Array.isArray(words) && words.length > 0) {
+          return `자극적인 단어 ${words.length}개 발견: ${words.slice(0, 3).join(', ')}${words.length > 3 ? '...' : ''}`
+        }
+      }
+      return '자극적인 단어가 거의 없습니다.'
+    },
+
+    /**
+     * 자극적인 단어 점수 계산 (0-100)
+     * 자극적인 단어가 적을수록 높은 점수
+     */
+    getSensationalWordsScore(result) {
+      if (result.analysis_details?.sensational_words_score !== undefined) {
+        return Math.round(result.analysis_details.sensational_words_score)
+      }
+      if (result.analysis_details?.sensational_words) {
+        const words = result.analysis_details.sensational_words
+        if (Array.isArray(words)) {
+          // 자극적인 단어가 없으면 100점, 1-2개면 80점, 3-5개면 50점, 6개 이상이면 20점
+          if (words.length === 0) return 100
+          if (words.length <= 2) return 80
+          if (words.length <= 5) return 50
+          return 20
+        }
+      }
+      return 80 // 기본값: 자극적인 단어 정보 없으면 중간 점수
+    },
+
+    /**
+     * 미디어/도메인 신뢰도 점수 계산 (0-100)
+     */
+    getMediaTrustScore(result) {
+      if (result.analysis_details?.media_trust?.trust_score !== undefined) {
+        return Math.round(result.analysis_details.media_trust.trust_score)
+      }
+      if (result.analysis_details?.media_trust) {
+        // media_trust 객체가 있으면 신뢰도 기반으로 점수 계산
+        const trust = result.analysis_details.media_trust
+        if (trust.reliability === 'High') return 90
+        if (trust.reliability === 'Medium') return 60
+        if (trust.reliability === 'Low') return 30
+      }
+      // 출처 정보가 있으면 기본 점수, 없으면 낮은 점수
+      return result.metadata?.publisher ? 60 : 40
+    },
+
+    /**
+     * 광고성/상업성 텍스트 반환
+     */
+    getAdvertisementText(result) {
+      if (result.analysis_details?.advertisement) {
+        const ad = result.analysis_details.advertisement
+        if (typeof ad === 'boolean') {
+          return ad ? '상업적 내용이 포함되어 있습니다' : '상업적 내용이 거의 없습니다'
+        }
+        if (typeof ad === 'object' && ad.level) {
+          if (ad.level === 'high') return '상업적 내용이 많이 포함되어 있습니다'
+          if (ad.level === 'medium') return '일부 상업적 내용이 포함되어 있습니다'
+          return '상업적 내용이 거의 없습니다'
+        }
+      }
+      return '광고성/상업성 정보 없음'
+    },
+
+    /**
+     * 광고성/상업성 점수 계산 (0-100)
+     * 광고가 적을수록 높은 점수
+     */
+    getAdvertisementScore(result) {
+      if (result.analysis_details?.advertisement_score !== undefined) {
+        return Math.round(result.analysis_details.advertisement_score)
+      }
+      if (result.analysis_details?.advertisement) {
+        const ad = result.analysis_details.advertisement
+        if (typeof ad === 'boolean') {
+          return ad ? 30 : 90 // 광고 있으면 낮은 점수, 없으면 높은 점수
+        }
+        if (typeof ad === 'object' && ad.level) {
+          if (ad.level === 'high') return 20
+          if (ad.level === 'medium') return 50
+          return 90
+        }
+      }
+      return 70 // 기본값: 광고 정보 없으면 중간 점수
+    },
+
+    /**
+     * 크로스 체크 정보 텍스트 반환
+     */
+    getCrossCheckInfo(result) {
+      if (result.analysis_details?.cross_check) {
+        const check = result.analysis_details.cross_check
+        if (check.verified_sources) {
+          return `다른 ${check.verified_sources}개 출처에서도 확인됨`
+        }
+        if (check.status === 'verified') return '다른 출처에서 확인됨'
+        if (check.status === 'unverified') return '다른 출처에서 확인되지 않음'
+      }
+      return '크로스 체크 정보 없음'
+    },
+
+    /**
+     * 크로스 체크 점수 계산 (0-100)
+     */
+    getCrossCheckScore(result) {
+      if (result.analysis_details?.cross_check_score !== undefined) {
+        return Math.round(result.analysis_details.cross_check_score)
+      }
+      if (result.analysis_details?.cross_check) {
+        const check = result.analysis_details.cross_check
+        if (check.verified_sources) {
+          // 확인된 출처가 많을수록 높은 점수
+          if (check.verified_sources >= 5) return 95
+          if (check.verified_sources >= 3) return 80
+          if (check.verified_sources >= 1) return 60
+          return 40
+        }
+        if (check.status === 'verified') return 80
+        if (check.status === 'unverified') return 30
+      }
+      return 50 // 기본값: 크로스 체크 정보 없으면 중간 점수
+    },
+
+    /**
      * 평가 제출
      */
     submitEvaluation() {
@@ -824,10 +1122,8 @@ export default {
 .content {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 3rem 2rem;
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2.5rem;
+  padding: 2rem 2rem;
+  display: block;
   position: relative;
   z-index: 1;
 }
@@ -835,7 +1131,7 @@ export default {
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 2.5rem;
+  gap: 0;
   animation: fadeInUp 0.6s ease-out;
 }
 
@@ -851,31 +1147,45 @@ export default {
 }
 
 .reliability-section {
-  background: var(--bg-card);
-  padding: 3rem;
-  border-radius: 20px;
-  border: 1px solid var(--gray-lighter);
-  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 255, 255, 0.8) 100%);
+  padding: 3rem 2rem;
+  border-radius: 24px;
+  border: 2px solid var(--gray-lighter);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  margin-bottom: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.reliability-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6);
+  border-radius: 24px 24px 0 0;
 }
 
 .reliability-section h2 {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   font-weight: 700;
   color: var(--black);
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
   letter-spacing: -0.5px;
 }
 
 .reliability-score {
   display: flex;
   align-items: center;
-  gap: 3rem;
+  gap: 2rem;
 }
 
 .score-circle {
   color: white;
-  width: 140px;
-  height: 140px;
+  width: 120px;
+  height: 120px;
   border-radius: 50%;
   display: flex;
   flex-direction: column;
@@ -899,13 +1209,13 @@ export default {
 }
 
 .score-number {
-  font-size: 3rem;
+  font-size: 2.5rem;
   line-height: 1;
   font-weight: 800;
 }
 
 .score-total {
-  font-size: 1.1rem;
+  font-size: 1rem;
   opacity: 0.9;
   margin-top: 0.25rem;
 }
@@ -937,70 +1247,234 @@ export default {
   font-weight: 500;
 }
 
+.analysis-details {
+  margin-bottom: 3rem;
+}
+
 .analysis-details h2 {
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--black);
   margin-bottom: 2rem;
   letter-spacing: -0.5px;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid var(--gray-lighter);
+  position: relative;
+}
+
+.analysis-details h2::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: var(--black);
+  border-radius: 2px;
+}
+
+.related-articles-section {
+  background: var(--bg-card);
+  padding: 2.5rem;
+  border-radius: 20px;
+  border-left: 4px solid var(--gray-light);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  margin-bottom: 3rem;
+  transition: all 0.3s ease;
+}
+
+.related-articles-section:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  border-left-color: var(--black);
+}
+
+.related-articles-section h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--black);
+  margin-bottom: 2rem;
+  letter-spacing: -0.5px;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--gray-lightest);
+}
+
+.history-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.history-link-btn {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  background: var(--black);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  background: var(--black-soft);
+}
+
+.evaluation-section-wrapper {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, var(--bg-card) 100%);
+  padding: 2.5rem;
+  border-radius: 20px;
+  border: 2px solid var(--gray-lighter);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  margin-top: 2rem;
+}
+
+.evaluation-section {
+  display: flex;
+  flex-direction: row;
+  gap: 1.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .analysis-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  grid-template-columns: repeat(3, 1fr);
   gap: 1.5rem;
 }
 
 .analysis-card {
   background: var(--bg-card);
-  padding: 2rem;
+  padding: 0;
   border-radius: 16px;
-  border: 1px solid var(--gray-lighter);
-  box-shadow: var(--shadow-md);
+  border: 2px solid var(--gray-lighter);
+  border-top: 4px solid var(--gray-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  transition: all var(--transition-normal);
+  flex-direction: column;
+  position: relative;
+}
+
+.analysis-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .analysis-card:hover {
-  transform: translateY(-5px);
-  box-shadow: var(--shadow-hover);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
   border-color: var(--gray-light);
+  border-top-width: 5px;
 }
 
-.analysis-card.warning {
-  border-left: 4px solid var(--warning);
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), var(--bg-card));
+.analysis-card:hover::before {
+  opacity: 1;
 }
 
-.card-icon {
-  font-size: 2.5rem;
-  width: 70px;
-  height: 70px;
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--gray-lightest);
+}
+
+.card-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gray-lightest);
-  border-radius: 16px;
-  transition: transform var(--transition-fast);
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
 }
 
-.analysis-card:hover .card-icon {
-  transform: scale(1.1);
+.analysis-card:hover .card-icon-wrapper {
+  transform: scale(1.1) rotate(5deg);
 }
 
-.card-content h3 {
-  font-size: 1.1rem;
-  font-weight: 600;
+.card-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.card-title-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-title-section h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--black);
-  margin-bottom: 0.75rem;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.score-circle-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.analysis-card:hover .score-circle-small {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.score-number-small {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--black);
+  letter-spacing: -0.5px;
+}
+
+.card-content {
+  padding: 1rem 1.25rem 1.25rem;
+  flex: 1;
 }
 
 .card-content p {
   color: var(--text-secondary);
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   line-height: 1.6;
+  margin: 0;
+  font-weight: 400;
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar {
@@ -1282,12 +1756,6 @@ export default {
   box-shadow: var(--shadow-md);
 }
 
-.evaluation-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  margin-top: 1rem;
-}
 
 .eval-btn {
   padding: 1.25rem 1.75rem;
@@ -1631,15 +2099,13 @@ export default {
 
 @media (max-width: 1024px) {
   .content {
-    grid-template-columns: 1fr;
     padding: 2rem 1.5rem;
-    gap: 2rem;
   }
   
   .reliability-score {
     flex-direction: column;
     text-align: center;
-    gap: 2rem;
+    gap: 1.5rem;
   }
 
   .score-description {
@@ -1648,13 +2114,31 @@ export default {
   }
   
   .analysis-cards {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
     gap: 1.25rem;
   }
 
-  .reliability-section,
-  .sidebar-section {
-    padding: 2rem;
+  .reliability-section {
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .analysis-details {
+    margin-bottom: 2rem;
+  }
+
+  .related-articles-section {
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .history-section {
+    margin-bottom: 2rem;
+  }
+
+  .evaluation-section-wrapper {
+    padding: 2rem 1.5rem;
+    margin-top: 1.5rem;
   }
 
   .loading-container,
@@ -1703,15 +2187,92 @@ export default {
     font-size: 2.5rem;
   }
 
+  .analysis-cards {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
   .analysis-card {
-    padding: 1.5rem;
-    flex-direction: column;
-    text-align: center;
+    padding: 0;
+  }
+
+  .card-header {
+    padding: 1rem 1rem 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .card-title-section {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-title-section h3 {
+    font-size: 0.9rem;
+  }
+
+  .card-content {
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .card-icon-wrapper {
+    width: 40px;
+    height: 40px;
   }
 
   .card-icon {
-    width: 60px;
-    height: 60px;
+    font-size: 1.25rem;
+  }
+
+  .score-circle-small {
+    width: 36px;
+    height: 36px;
+  }
+
+  .score-number-small {
+    font-size: 0.8rem;
+  }
+
+  .reliability-section {
+    padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .analysis-details {
+    margin-bottom: 1.5rem;
+  }
+
+  .analysis-details h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .related-articles-section {
+    padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .related-articles-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .history-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .evaluation-section-wrapper {
+    padding: 1.5rem 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .history-link-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .evaluation-section {
+    flex-direction: column;
   }
 
   .evaluation-section {
