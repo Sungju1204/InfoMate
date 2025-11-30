@@ -1,0 +1,19 @@
+
+# 2. (필수) 시크릿 키가 담긴 .env 파일
+.env
+
+
+# 4. (권장) Django 기본 DB 파일
+*.sqlite3
+
+# 1. (필수) AI 모델 폴더 무시
+my_fake_news_model/
+results_multilingual/
+
+# 2. (권장) Mac/Python/VSCode 찌꺼기 파일 무시
+__pycache__/
+*.pyc
+.DS_Store
+.venv/
+venv/
+.vscode/
