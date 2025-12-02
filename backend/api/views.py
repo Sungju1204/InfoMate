@@ -22,8 +22,22 @@ from django.views.decorators.csrf import csrf_exempt
 
 from openai import OpenAI
 
-# API 키 설정
-client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+# API 키 설정 (지연 초기화)
+_client = None
+
+def get_openai_client():
+    """OpenAI 클라이언트를 지연 초기화하여 반환"""
+    global _client
+    if _client is None:
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if api_key:
+            _client = OpenAI(api_key=api_key)
+        else:
+            _client = None  # API 키가 없으면 None 반환
+    return _client
+
+# 하위 호환성을 위한 client 변수 (get_openai_client() 사용 권장)
+client = None  # 모듈 레벨에서는 None으로 설정, 필요시 get_openai_client() 사용
 
 # --- 헬퍼 함수: 텍스트 정규화 (제목 비교용) ---
 def normalize_text(text):
@@ -34,6 +48,7 @@ def normalize_text(text):
 
 def get_gpt_prediction(title, text):
     """GPT 모델 분석 + 키워드 추출"""
+    client = get_openai_client()
     if not client:
         return {"error": "API 키 설정 오류", "prediction": "Error", "score": 0}
         
@@ -376,6 +391,7 @@ def cross_check_with_related_articles(title, text, related_articles):
     관련 기사와 내용 일치도를 GPT로 검증
     Returns: {"score": 0~100, "consistency": "높음/보통/낮음", "reason": "..."}
     """
+    client = get_openai_client()
     if not client or not related_articles:
         return {
             "score": 70,  # 기본값 (검증 불가)
@@ -405,6 +421,10 @@ def cross_check_with_related_articles(title, text, related_articles):
     "reason": "판단 근거 1문장"
 }}
 """
+        
+        client = get_openai_client()
+        if not client:
+            return {"consistency_score": 50, "consistency_level": "보통", "reason": "GPT API 키가 설정되지 않아 기본값 반환"}
         
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -585,21 +605,32 @@ class AnalyzeView(APIView):
 
         domain = get_domain_from_url(url_to_check)
         
-        # 2. 크롤링 (Playwright)
+        # 2. 크롤링 (requests 먼저 시도, 실패 시 Playwright 사용)
         html = None
         browser = None
+        
+        # 먼저 requests로 시도 (대부분의 뉴스 사이트는 이 방법으로 가능)
         try:
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
-                page = browser.new_page(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-                page.goto(url_to_check, wait_until='domcontentloaded', timeout=90000)  
-                html = page.content()
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+            response = requests.get(url_to_check, headers=headers, timeout=30)
+            response.raise_for_status()
+            html = response.text
         except Exception as e:
-            return JsonResponse({"success": False, "error": {"message": f"크롤링 오류: {e}"}}, status=500)
-        finally:
-            if browser: 
-                try: browser.close() 
-                except: pass
+            # requests로 실패하면 Playwright 시도
+            try:
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(headless=True)
+                    page = browser.new_page(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
+                    page.goto(url_to_check, wait_until='domcontentloaded', timeout=90000)  
+                    html = page.content()
+            except Exception as playwright_error:
+                return JsonResponse({"success": False, "error": {"message": f"크롤링 오류: requests 실패 ({str(e)}), Playwright 실패 ({str(playwright_error)})"}}, status=500)
+            finally:
+                if browser: 
+                    try: browser.close() 
+                    except: pass
         
         if not html: 
             return JsonResponse({"success": False, "error": {"message": "HTML 추출 실패"}}, status=500)
@@ -693,6 +724,7 @@ class AnalyzeView(APIView):
                 "publisher_name": publisher_name,
                 "published_date": publish_date,
                 "scraped_title": title,
+                "scraped_content": text_content[:5000] if text_content else "",  # 본문 내용 추가 (최대 5000자)
                 
                 # 개별 지표 점수들
                 "detailed_scores": {

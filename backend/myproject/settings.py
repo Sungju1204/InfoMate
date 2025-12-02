@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv() # .env 파일 로드
 
-SECRET_KEY = os.environ.get('SECRET_KEY')
+SECRET_KEY = os.environ.get('SECRET_KEY') or 'django-insecure-dev-key-change-in-production-12345'
 
 # Quick-start development settings - unsuitable for production
 
