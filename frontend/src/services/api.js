@@ -3,7 +3,7 @@
 // 백엔드 API 주소
 // 환경 변수에서 가져오거나 기본값 사용
 // ngrok 주소: https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze/
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://134.185.99.4'
 
 /**
  * 신뢰도 점수 계산

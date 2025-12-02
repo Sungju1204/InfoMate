@@ -1,11 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
-// .env 파일에서 키를 가져옵니다.
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+// 👇 환경 변수 싹 무시하고, 직접 주소와 키를 박아넣습니다.
+const supabaseUrl = "https://kjjokcjnqfppyhvdqrdd.supabase.co"
+const supabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtqam9rY2pucWZwcHlodmRxcmRkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQwNzYwMTgsImV4cCI6MjA3OTY1MjAxOH0.4p1S4OQmOZ4QtpbwAnTYYVV8wWwXLq5GxMi2TjpgNDY"
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('⚠️ .env 파일 설정을 확인해주세요!')
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// 클라이언트 생성
+export const supabase = createClient(supabaseUrl, supabaseKey)

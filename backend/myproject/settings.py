@@ -9,19 +9,21 @@ https://docs.djangoproject.com/en/5.0/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
-import os 
+import os  # <-- 1. import os 추가
 from pathlib import Path
-from dotenv import load_dotenv
-
+from dotenv import load_dotenv # <-- 2. dotenv import 추가
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
-load_dotenv() # .env 파일 로드
+load_dotenv() # <-- 3. load_dotenv() 호출 추가
 
 SECRET_KEY = os.environ.get('SECRET_KEY')
 
 # Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+
+# SECURITY WARNING: keep the secret key used in production secret!
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -29,10 +31,10 @@ DEBUG = True
 ALLOWED_HOSTS = [
     'localhost',
     '127.0.0.1',  # localhost와 같은 의미
+    '.ngrok-free.app',  # ngrok v3 무료 주소
+    '.ngrok.io',        # (혹시 구버전 ngrok일까봐)
+    '.ngrok-free.dev',  # <-- !!! 이걸 추가하세요 !!!
     '0.0.0.0',       # Docker 컨테이너의 내부 호스트 주소
-    '.ngrok-free.app',  # ngrok v3 주소 허용
-    '.ngrok.io',        # 구버전 ngrok 주소 허용
-    "http://localhost:3000",
 ]
 
 # Application definition
@@ -44,24 +46,26 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    # 프로젝트 앱
     'api',
-    # 외부 패키지
-    'corsheaders',  # CORS 처리를 위한 앱
-    'rest_framework', # 요청 제한을 위한 DRF
+    'corsheaders',  # <--- CORS
+    'rest_framework', # <-- 요청 제한
 ]
 
 REST_FRAMEWORK = {
     'DEFAULT_THROTTLE_CLASSES': [
+        # 익명 사용자 (인증되지 않은 사용자)에 대한 기본 제한 클래스
         'rest_framework.throttling.AnonRateThrottle', 
     ],
     'DEFAULT_THROTTLE_RATES': {
+        # 'anon': 시간당 100회 요청으로 제한 (예시)
         'anon': '100/hour', 
+        # 'user': 로그인된 사용자에 대한 제한 (현재는 필요 없지만 확장 대비)
+        # 'user': '1000/day' 
     }
 }
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # ★ CORS 미들웨어를 최상단에 배치
+    'corsheaders.middleware.CorsMiddleware',  # <--- 이 줄이 맨 위에!
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -122,32 +126,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# ----------------------------------------------------------------------
-# URL 설정 수정: POST 요청에서 슬래시 리다이렉션 오류 방지
-# ----------------------------------------------------------------------
-APPEND_SLASH = False # 이 줄을 추가하여 자동 슬래시 추가 기능을 비활성화합니다.
-
-# ----------------------------------------------------------------------
-# CORS 설정 (프론트엔드 통신 허용)
-# ----------------------------------------------------------------------
-
-# 프론트엔드가 실행되는 주소만 명시적으로 허용 (개발 환경 기준)
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-]
-
-# ngrok을 사용할 경우: ngrok 도메인도 허용
-# CORS_ALLOWED_ORIGIN_REGEXES = [
-#     r"^https://.*\.ngrok-free\.app$",
-#     r"^https://.*\.ngrok\.io$",
-# ]
-
-# 개발 목적으로 모든 출처 허용 (보안 취약, 운영 시 절대 사용 금지)
-CORS_ALLOW_ALL_ORIGINS = True
-
-
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -158,12 +136,16 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
-    'ngrok-skip-browser-warning',  # ngrok 관련 헤더 추가
+    'ngrok-skip-browser-warning',  # 이 헤더 추가
 ]
 
-# CSRF 보안 설정 (개발 환경에서 임시로 완화)
-CSRF_COOKIE_SECURE = False
-CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",  # 프론트엔드 주소
+]
+
+# 또는 개발 중에는 모든 origin 허용 (개발용만)
+# CORS_ALLOW_ALL_ORIGINS = True
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
@@ -186,3 +168,7 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_HTTPONLY = False
+CORS_ALLOW_ALL_ORIGINS = True
