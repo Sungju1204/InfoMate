@@ -9,7 +9,6 @@
         </div>
         <nav class="nav">
           <a href="#" class="nav-link">서비스 소개</a>
-          <router-link to="/history" class="nav-link">평가 기록</router-link>
           <a href="#" class="nav-link">문의/Q&A</a>
         </nav>
       </div>
@@ -82,51 +81,144 @@
         <section class="analysis-details">
           <h2>상세 분석 내역</h2>
           <div class="analysis-cards">
-            <div class="analysis-card">
-              <div class="card-icon">🏢</div>
+            <!-- GPT 의견+점수 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getGPTScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getGPTScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🤖</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>GPT 의견</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getGPTScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getGPTScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>출처 신뢰도</h3>
-                <p>{{ analysisResult.metadata?.publisher || '정보 없음' }}</p>
+                <p>{{ getGPTOpinion(analysisResult) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card">
-              <div class="card-icon">📅</div>
+
+            <!-- 지도학습AI 모델 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getAIModelScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getAIModelScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🧠</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>지도학습AI 모델</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getAIModelScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getAIModelScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>작성일/발행일</h3>
+                <p>{{ getAIModelPrediction(analysisResult) }}</p>
+              </div>
+            </div>
+
+            <!-- 발행일 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getPublishDateScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getPublishDateScore(analysisResult)) + '15' }">
+                  <div class="card-icon">📅</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>발행일</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getPublishDateScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getPublishDateScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
                 <p>{{ formatDate(analysisResult.metadata?.publish_date) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card" v-if="analysisResult.analysis_details?.bias">
-              <div class="card-icon">⚖️</div>
+
+            <!-- 자극적인 단어 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getSensationalWordsScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getSensationalWordsScore(analysisResult)) + '15' }">
+                  <div class="card-icon">⚠️</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>자극적인 단어</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getSensationalWordsScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getSensationalWordsScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>정보의 편향성</h3>
-                <p>{{ 
-                  analysisResult.analysis_details.bias === 'neutral' ? '중립적인 관점에서 작성된 기사입니다' :
-                  analysisResult.analysis_details.bias === 'left' ? '진보적 관점이 포함되어 있습니다' :
-                  analysisResult.analysis_details.bias === 'right' ? '보수적 관점이 포함되어 있습니다' :
-                  '편향성 정보 없음'
-                }}</p>
+                <p>{{ getSensationalWords(analysisResult) }}</p>
               </div>
             </div>
-            
-            <div class="analysis-card warning" v-if="analysisResult.analysis_details?.advertisement">
-              <div class="card-icon">⚠️</div>
+
+            <!-- 미디어/도메인 신뢰도 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getMediaTrustScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getMediaTrustScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🏢</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>미디어/도메인 신뢰도</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getMediaTrustScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getMediaTrustScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
               <div class="card-content">
-                <h3>광고/상업성</h3>
-                <p>일부 상업적 내용이 포함되어 있습니다</p>
+                <p>{{ analysisResult.metadata?.publisher || '정보 없음' }}</p>
+              </div>
+            </div>
+
+            <!-- 광고성/상업성 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getAdvertisementScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getAdvertisementScore(analysisResult)) + '15' }">
+                  <div class="card-icon">💰</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>광고성/상업성</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getAdvertisementScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getAdvertisementScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
+                <p>{{ getAdvertisementText(analysisResult) }}</p>
+              </div>
+            </div>
+
+            <!-- 크로스 체크 정보/신뢰성 -->
+            <div class="analysis-card" :style="{ borderTopColor: getScoreColor(getCrossCheckScore(analysisResult)) }">
+              <div class="card-header">
+                <div class="card-icon-wrapper" :style="{ background: getScoreColor(getCrossCheckScore(analysisResult)) + '15' }">
+                  <div class="card-icon">🔍</div>
+                </div>
+                <div class="card-title-section">
+                  <h3>크로스 체크 정보</h3>
+                  <div class="score-circle-small" :style="{ borderColor: getScoreColor(getCrossCheckScore(analysisResult)) }">
+                    <span class="score-number-small">{{ getCrossCheckScore(analysisResult) }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="card-content">
+                <p>{{ getCrossCheckInfo(analysisResult) }}</p>
               </div>
             </div>
           </div>
         </section>
-      </div>
 
-      <!-- 사이드바 -->
-      <aside class="sidebar">
-        <!-- 관련 기사 -->
-        <div class="sidebar-section">
-          <h3>관련 기사</h3>
+        <!-- 평가 기록 섹션 -->
+        <section class="history-section">
+          <router-link to="/history" class="history-link-btn">
+            평가 기록 보기 →
+          </router-link>
+        </section>
+
+        <!-- 관련 기사 섹션 -->
+        <section class="related-articles-section">
+          <h2>관련 기사</h2>
           <div class="article-list">
             <div class="article-item" v-for="(article, index) in relatedArticles" :key="index">
               <div class="article-thumbnail">📰</div>
@@ -139,35 +231,20 @@
               관련 기사가 없습니다.
             </div>
           </div>
-        </div>
-
-        <!-- 함께 보면 좋은 글 -->
-        <div class="sidebar-section">
-          <h3>함께 보면 좋은 글</h3>
-          <div class="article-list">
-            <div class="article-item" v-for="(article, index) in recommendedArticles" :key="index">
-              <div class="article-thumbnail">📖</div>
-              <div class="article-content">
-                <h4>{{ article.title || '추천 기사 제목' }}</h4>
-                <p>{{ article.description || '추천 기사 설명...' }}</p>
-              </div>
-            </div>
-            <div v-if="recommendedArticles.length === 0" class="no-articles">
-              추천 기사가 없습니다.
-            </div>
-          </div>
-        </div>
+        </section>
 
         <!-- 정보 평가 기능 -->
-        <div class="evaluation-section">
-          <button @click="showEvaluationModal = true" class="eval-btn primary">
-            평가하고 피드백
-          </button>
-          <button @click="showReportModal = true" class="eval-btn secondary">
-            신고하기
-          </button>
-        </div>
-      </aside>
+        <section class="evaluation-section-wrapper">
+          <div class="evaluation-section">
+            <button @click="showEvaluationModal = true" class="eval-btn primary">
+              평가하고 피드백
+            </button>
+            <button @click="showReportModal = true" class="eval-btn secondary">
+              신고하기
+            </button>
+          </div>
+        </section>
+      </div>
     </div>
 
     <!-- 평가 모달 -->
@@ -622,75 +699,300 @@ export default {
     },
 
     /**
+     * GPT 의견 텍스트 반환
+     */
+    getGPTOpinion(result) {
+      if (result.analysis_details?.gpt_opinion) {
+        return result.analysis_details.gpt_opinion
+      }
+      // 기본값: AI 예측 결과 기반
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.prediction === 'Fake') {
+          return '가짜뉴스일 가능성이 높습니다. 주의가 필요합니다.'
+        }
+        return '신뢰할 수 있는 뉴스로 판단됩니다.'
+      }
+      return 'GPT 분석 결과를 확인할 수 없습니다.'
+    },
+
+    /**
+     * GPT 점수 계산 (0-100)
+     */
+    getGPTScore(result) {
+      if (result.analysis_details?.gpt_score !== undefined) {
+        return Math.round(result.analysis_details.gpt_score)
+      }
+      // AI 예측 결과 기반으로 점수 계산
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.true_percentage !== undefined) {
+          return Math.round(pred.true_percentage)
+        }
+      }
+      return result.reliability_score || 50
+    },
+
+    /**
+     * 지도학습AI 모델 예측 텍스트 반환
+     */
+    getAIModelPrediction(result) {
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.prediction === 'Fake') {
+          return `가짜뉴스로 판단됨 (가짜 확률: ${pred.fake_percentage || 0}%)`
+        }
+        return `진짜뉴스로 판단됨 (진짜 확률: ${pred.true_percentage || 0}%)`
+      }
+      return 'AI 모델 분석 결과 없음'
+    },
+
+    /**
+     * 지도학습AI 모델 점수 계산 (0-100)
+     */
+    getAIModelScore(result) {
+      if (result.analysis_details?.ai_model_score !== undefined) {
+        return Math.round(result.analysis_details.ai_model_score)
+      }
+      // AI 예측 결과 기반으로 점수 계산
+      if (result.analysis_details?.ai_prediction) {
+        const pred = result.analysis_details.ai_prediction
+        if (pred.true_percentage !== undefined) {
+          return Math.round(pred.true_percentage)
+        }
+      }
+      return result.reliability_score || 50
+    },
+
+    /**
+     * 발행일 점수 계산 (0-100)
+     * 최근일수록 높은 점수
+     */
+    getPublishDateScore(result) {
+      if (result.analysis_details?.publish_date_score !== undefined) {
+        return Math.round(result.analysis_details.publish_date_score)
+      }
+      const publishDate = result.metadata?.publish_date
+      if (!publishDate) return 30 // 날짜 정보 없으면 낮은 점수
+      
+      try {
+        const date = new Date(publishDate)
+        const now = new Date()
+        const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24))
+        
+        // 최근 7일 이내: 90점, 30일 이내: 70점, 90일 이내: 50점, 그 이상: 30점
+        if (diffDays <= 7) return 90
+        if (diffDays <= 30) return 70
+        if (diffDays <= 90) return 50
+        return 30
+      } catch {
+        return 50
+      }
+    },
+
+    /**
+     * 자극적인 단어 텍스트 반환
+     */
+    getSensationalWords(result) {
+      if (result.analysis_details?.sensational_words) {
+        const words = result.analysis_details.sensational_words
+        if (Array.isArray(words) && words.length > 0) {
+          return `자극적인 단어 ${words.length}개 발견: ${words.slice(0, 3).join(', ')}${words.length > 3 ? '...' : ''}`
+        }
+      }
+      return '자극적인 단어가 거의 없습니다.'
+    },
+
+    /**
+     * 자극적인 단어 점수 계산 (0-100)
+     * 자극적인 단어가 적을수록 높은 점수
+     */
+    getSensationalWordsScore(result) {
+      if (result.analysis_details?.sensational_words_score !== undefined) {
+        return Math.round(result.analysis_details.sensational_words_score)
+      }
+      if (result.analysis_details?.sensational_words) {
+        const words = result.analysis_details.sensational_words
+        if (Array.isArray(words)) {
+          // 자극적인 단어가 없으면 100점, 1-2개면 80점, 3-5개면 50점, 6개 이상이면 20점
+          if (words.length === 0) return 100
+          if (words.length <= 2) return 80
+          if (words.length <= 5) return 50
+          return 20
+        }
+      }
+      return 80 // 기본값: 자극적인 단어 정보 없으면 중간 점수
+    },
+
+    /**
+     * 미디어/도메인 신뢰도 점수 계산 (0-100)
+     */
+    getMediaTrustScore(result) {
+      if (result.analysis_details?.media_trust?.trust_score !== undefined) {
+        return Math.round(result.analysis_details.media_trust.trust_score)
+      }
+      if (result.analysis_details?.media_trust) {
+        // media_trust 객체가 있으면 신뢰도 기반으로 점수 계산
+        const trust = result.analysis_details.media_trust
+        if (trust.reliability === 'High') return 90
+        if (trust.reliability === 'Medium') return 60
+        if (trust.reliability === 'Low') return 30
+      }
+      // 출처 정보가 있으면 기본 점수, 없으면 낮은 점수
+      return result.metadata?.publisher ? 60 : 40
+    },
+
+    /**
+     * 광고성/상업성 텍스트 반환
+     */
+    getAdvertisementText(result) {
+      if (result.analysis_details?.advertisement) {
+        const ad = result.analysis_details.advertisement
+        if (typeof ad === 'boolean') {
+          return ad ? '상업적 내용이 포함되어 있습니다' : '상업적 내용이 거의 없습니다'
+        }
+        if (typeof ad === 'object' && ad.level) {
+          if (ad.level === 'high') return '상업적 내용이 많이 포함되어 있습니다'
+          if (ad.level === 'medium') return '일부 상업적 내용이 포함되어 있습니다'
+          return '상업적 내용이 거의 없습니다'
+        }
+      }
+      return '광고성/상업성 정보 없음'
+    },
+
+    /**
+     * 광고성/상업성 점수 계산 (0-100)
+     * 광고가 적을수록 높은 점수
+     */
+    getAdvertisementScore(result) {
+      if (result.analysis_details?.advertisement_score !== undefined) {
+        return Math.round(result.analysis_details.advertisement_score)
+      }
+      if (result.analysis_details?.advertisement) {
+        const ad = result.analysis_details.advertisement
+        if (typeof ad === 'boolean') {
+          return ad ? 30 : 90 // 광고 있으면 낮은 점수, 없으면 높은 점수
+        }
+        if (typeof ad === 'object' && ad.level) {
+          if (ad.level === 'high') return 20
+          if (ad.level === 'medium') return 50
+          return 90
+        }
+      }
+      return 70 // 기본값: 광고 정보 없으면 중간 점수
+    },
+
+    /**
+     * 크로스 체크 정보 텍스트 반환
+     */
+    getCrossCheckInfo(result) {
+      if (result.analysis_details?.cross_check) {
+        const check = result.analysis_details.cross_check
+        if (check.verified_sources) {
+          return `다른 ${check.verified_sources}개 출처에서도 확인됨`
+        }
+        if (check.status === 'verified') return '다른 출처에서 확인됨'
+        if (check.status === 'unverified') return '다른 출처에서 확인되지 않음'
+      }
+      return '크로스 체크 정보 없음'
+    },
+
+    /**
+     * 크로스 체크 점수 계산 (0-100)
+     */
+    getCrossCheckScore(result) {
+      if (result.analysis_details?.cross_check_score !== undefined) {
+        return Math.round(result.analysis_details.cross_check_score)
+      }
+      if (result.analysis_details?.cross_check) {
+        const check = result.analysis_details.cross_check
+        if (check.verified_sources) {
+          // 확인된 출처가 많을수록 높은 점수
+          if (check.verified_sources >= 5) return 95
+          if (check.verified_sources >= 3) return 80
+          if (check.verified_sources >= 1) return 60
+          return 40
+        }
+        if (check.status === 'verified') return 80
+        if (check.status === 'unverified') return 30
+      }
+      return 50 // 기본값: 크로스 체크 정보 없으면 중간 점수
+    },
+
+    /**
      * 평가 제출
      */
-    async submitEvaluation() {
+    submitEvaluation() {
       if (this.evaluationRating === 0) {
         alert('평가 점수를 선택해주세요.')
         return
       }
 
-      // 로딩 중 중복 클릭 방지 (선택사항)
-      // if (this.isLoading) return;
-
-      try {
-        // ⭐ Supabase에 저장 (await 필수)
-        await evaluationService.addEvaluation({
-          url: this.url,
-          rating: this.evaluationRating,
-          feedback: this.evaluationFeedback,
-          // 현재 분석 결과도 같이 저장 (통계용)
-          reliability_score: this.analysisResult?.reliability_score || 0,
-          is_fake: this.analysisResult?.is_fake || false
-        })
-
-        // 성공 메시지
-        this.showSuccessToast = true
-        this.successMessage = '평가가 저장되었습니다. 감사합니다!'
-        this.showEvaluationModal = false
-        
-        // 초기화
-        this.evaluationRating = 0
-        this.evaluationFeedback = ''
-        setTimeout(() => { this.showSuccessToast = false }, 3000)
-
-      } catch (error) {
-        console.error(error)
-        alert('평가 저장 중 오류가 발생했습니다.')
+      if (!this.url) {
+        alert('URL 정보가 없습니다.')
+        return
       }
+
+      // 평가 저장
+      evaluationService.addEvaluation({
+        url: this.url,
+        rating: this.evaluationRating,
+        feedback: this.evaluationFeedback
+      })
+
+      // 성공 메시지 표시
+      this.showSuccessToast = true
+      this.successMessage = '평가가 저장되었습니다. 감사합니다!'
+      
+      // 모달 닫기
+      this.showEvaluationModal = false
+      
+      // 입력 초기화
+      this.evaluationRating = 0
+      this.evaluationFeedback = ''
+
+      // 토스트 메시지 자동 닫기
+      setTimeout(() => {
+        this.showSuccessToast = false
+      }, 3000)
     },
 
     /**
      * 신고 제출
      */
-    async submitReport() {
+    submitReport() {
       if (!this.reportReason) {
         alert('신고 사유를 선택해주세요.')
         return
       }
 
-      try {
-        // ⭐ Supabase에 저장
-        await evaluationService.addReport({
-          url: this.url,
-          reason: this.reportReason,
-          description: this.reportDescription
-        })
-
-        // 성공 메시지
-        this.showSuccessToast = true
-        this.successMessage = '신고가 접수되었습니다.'
-        this.showReportModal = false
-        
-        // 초기화
-        this.reportReason = ''
-        this.reportDescription = ''
-        setTimeout(() => { this.showSuccessToast = false }, 3000)
-
-      } catch (error) {
-        console.error(error)
-        alert('신고 접수 중 오류가 발생했습니다.')
+      if (!this.url) {
+        alert('URL 정보가 없습니다.')
+        return
       }
+
+      // 신고 저장
+      evaluationService.addReport({
+        url: this.url,
+        reason: this.reportReason,
+        description: this.reportDescription
+      })
+
+      // 성공 메시지 표시
+      this.showSuccessToast = true
+      this.successMessage = '신고가 접수되었습니다. 검토 후 조치하겠습니다.'
+      
+      // 모달 닫기
+      this.showReportModal = false
+      
+      // 입력 초기화
+      this.reportReason = ''
+      this.reportDescription = ''
+
+      // 토스트 메시지 자동 닫기
+      setTimeout(() => {
+        this.showSuccessToast = false
+      }, 3000)
     },
 
     /**
@@ -720,13 +1022,18 @@ export default {
 <style scoped>
 .analysis-result {
   min-height: 100vh;
-  background: #f8fafc;
+  background: var(--bg-primary);
+  position: relative;
 }
 
 .header {
-  background: white;
-  padding: 1rem 0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--bg-secondary);
+  padding: 1.5rem 0;
+  box-shadow: var(--shadow-sm);
+  border-bottom: 1px solid var(--gray-lightest);
+  position: sticky;
+  top: 0;
+  z-index: 100;
 }
 
 .header-content {
@@ -743,24 +1050,37 @@ export default {
   align-items: center;
   gap: 0.5rem;
   cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+
+.logo:hover {
+  transform: translateX(5px);
 }
 
 .logo-icon {
-  background: #3b82f6;
+  background: var(--black);
   color: white;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--transition-fast);
+}
+
+.logo:hover .logo-icon {
+  transform: scale(1.05);
+  box-shadow: var(--shadow-md);
 }
 
 .logo-text {
   font-size: 1.5rem;
-  font-weight: bold;
-  color: #1f2937;
+  font-weight: 800;
+  color: var(--black);
+  letter-spacing: -0.5px;
 }
 
 .nav {
@@ -769,43 +1089,91 @@ export default {
 }
 
 .nav-link {
-  color: #6b7280;
+  color: var(--text-secondary);
   text-decoration: none;
   font-weight: 500;
-  transition: color 0.3s;
+  transition: all var(--transition-normal);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  position: relative;
+}
+
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 80%;
+  height: 2px;
+  background: var(--black);
+  transition: transform var(--transition-normal);
 }
 
 .nav-link:hover {
-  color: #3b82f6;
+  color: var(--black);
+  background: var(--gray-lightest);
+}
+
+.nav-link:hover::after {
+  transform: translateX(-50%) scaleX(1);
 }
 
 .content {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
-  display: grid;
-  grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  padding: 2rem 2rem;
+  display: block;
+  position: relative;
+  z-index: 1;
 }
 
 .main-content {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 0;
+  animation: fadeInUp 0.6s ease-out;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .reliability-section {
-  background: white;
-  padding: 2rem;
-  border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  background: linear-gradient(135deg, var(--bg-card) 0%, rgba(255, 255, 255, 0.8) 100%);
+  padding: 3rem 2rem;
+  border-radius: 24px;
+  border: 2px solid var(--gray-lighter);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  margin-bottom: 3rem;
+  position: relative;
+  overflow: hidden;
+}
+
+.reliability-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #10b981, #3b82f6, #8b5cf6);
+  border-radius: 24px 24px 0 0;
 }
 
 .reliability-section h2 {
   font-size: 1.5rem;
-  font-weight: bold;
-  color: #1f2937;
+  font-weight: 700;
+  color: var(--black);
   margin-bottom: 1.5rem;
+  letter-spacing: -0.5px;
 }
 
 .reliability-score {
@@ -824,116 +1192,318 @@ export default {
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  animation: scoreReveal 1s ease-out;
+}
+
+@keyframes scoreReveal {
+  from {
+    transform: scale(0);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .score-number {
   font-size: 2.5rem;
   line-height: 1;
+  font-weight: 800;
 }
 
 .score-total {
   font-size: 1rem;
-  opacity: 0.8;
+  opacity: 0.9;
+  margin-top: 0.25rem;
 }
 
 .score-description {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 1.5rem;
 }
 
 .score-icon {
   color: white;
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
+  font-size: 1.5rem;
+  box-shadow: var(--shadow-md);
 }
 
 .score-description p {
-  color: #374151;
-  font-size: 1.1rem;
-  line-height: 1.5;
+  color: var(--text-secondary);
+  font-size: 1.15rem;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.analysis-details {
+  margin-bottom: 3rem;
 }
 
 .analysis-details h2 {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 1.5rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--black);
+  margin-bottom: 2rem;
+  letter-spacing: -0.5px;
+  padding-bottom: 1rem;
+  border-bottom: 3px solid var(--gray-lighter);
+  position: relative;
+}
+
+.analysis-details h2::after {
+  content: '';
+  position: absolute;
+  bottom: -3px;
+  left: 0;
+  width: 80px;
+  height: 3px;
+  background: var(--black);
+  border-radius: 2px;
+}
+
+.related-articles-section {
+  background: var(--bg-card);
+  padding: 2.5rem;
+  border-radius: 20px;
+  border-left: 4px solid var(--gray-light);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  margin-bottom: 3rem;
+  transition: all 0.3s ease;
+}
+
+.related-articles-section:hover {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  border-left-color: var(--black);
+}
+
+.related-articles-section h2 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--black);
+  margin-bottom: 2rem;
+  letter-spacing: -0.5px;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid var(--gray-lightest);
+}
+
+.history-section {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 3rem;
+}
+
+.history-link-btn {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  background: var(--black);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
+}
+
+.history-link-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+  background: var(--black-soft);
+}
+
+.evaluation-section-wrapper {
+  background: linear-gradient(135deg, rgba(0, 0, 0, 0.02) 0%, var(--bg-card) 100%);
+  padding: 2.5rem;
+  border-radius: 20px;
+  border: 2px solid var(--gray-lighter);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+  margin-top: 2rem;
+}
+
+.evaluation-section {
+  display: flex;
+  flex-direction: row;
+  gap: 1.25rem;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 .analysis-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.5rem;
 }
 
 .analysis-card {
-  background: white;
-  padding: 1.5rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  background: var(--bg-card);
+  padding: 0;
+  border-radius: 16px;
+  border: 2px solid var(--gray-lighter);
+  border-top: 4px solid var(--gray-light);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
   display: flex;
-  align-items: center;
-  gap: 1rem;
-  transition: transform 0.2s;
+  flex-direction: column;
+  position: relative;
+}
+
+.analysis-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .analysis-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-6px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  border-color: var(--gray-light);
+  border-top-width: 5px;
 }
 
-.analysis-card.warning {
-  border-left: 4px solid #f59e0b;
+.analysis-card:hover::before {
+  opacity: 1;
 }
 
-.card-icon {
-  font-size: 2rem;
-  width: 60px;
-  height: 60px;
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 1rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.1));
+  border-bottom: 1px solid var(--gray-lightest);
+}
+
+.card-icon-wrapper {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  border-radius: 12px;
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
 }
 
-.card-content h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.5rem;
+.analysis-card:hover .card-icon-wrapper {
+  transform: scale(1.1) rotate(5deg);
+}
+
+.card-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.card-title-section {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.card-title-section h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--black);
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+.score-circle-small {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2.5px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.8);
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.analysis-card:hover .score-circle-small {
+  transform: scale(1.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.score-number-small {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--black);
+  letter-spacing: -0.5px;
+}
+
+.card-content {
+  padding: 1rem 1.25rem 1.25rem;
+  flex: 1;
 }
 
 .card-content p {
-  color: #6b7280;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  margin: 0;
+  font-weight: 400;
+}
+
+.score-badge {
+  display: inline-block;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  color: white;
+  font-weight: 700;
   font-size: 0.9rem;
-  line-height: 1.4;
+  margin-top: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
   gap: 2rem;
+  animation: fadeInUp 0.6s ease-out 0.2s backwards;
 }
 
 .sidebar-section {
-  background: white;
-  padding: 1.5rem;
+  background: var(--bg-card);
+  padding: 2rem;
   border-radius: 16px;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--gray-lighter);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-normal);
+}
+
+.sidebar-section:hover {
+  box-shadow: var(--shadow-hover);
+  border-color: var(--gray-light);
 }
 
 .sidebar-section h3 {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #1f2937;
-  margin-bottom: 1rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--black);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.3px;
 }
 
 .article-list {
@@ -946,44 +1516,48 @@ export default {
   display: flex;
   gap: 1rem;
   padding: 1rem;
-  border-radius: 8px;
-  transition: background 0.2s;
+  border-radius: 12px;
+  transition: all var(--transition-normal);
+  cursor: pointer;
+  border: 1px solid transparent;
 }
 
 .article-item:hover {
-  background: #f9fafb;
+  background: var(--gray-lightest);
+  border-color: var(--gray-lighter);
+  transform: translateX(5px);
 }
 
 .article-thumbnail {
-  font-size: 1.5rem;
-  width: 40px;
-  height: 40px;
+  font-size: 1.75rem;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  border-radius: 8px;
+  background: var(--gray-lightest);
+  border-radius: 12px;
 }
 
 .article-content h4 {
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.25rem;
-  line-height: 1.3;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
 }
 
 .article-content p {
-  font-size: 0.8rem;
-  color: #6b7280;
-  line-height: 1.3;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 .no-articles {
-  color: #9ca3af;
-  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
   text-align: center;
-  padding: 1rem;
+  padding: 2rem 1rem;
 }
 
 .loading-container {
@@ -992,14 +1566,20 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 60vh;
-  gap: 1rem;
+  gap: 1.5rem;
+  background: var(--bg-card);
+  margin: 3rem 2rem;
+  padding: 4rem 2rem;
+  border-radius: 20px;
+  border: 1px solid var(--gray-lighter);
+  box-shadow: var(--shadow-lg);
 }
 
 .loading-spinner {
-  width: 50px;
-  height: 50px;
-  border: 4px solid #f3f4f6;
-  border-top: 4px solid #3b82f6;
+  width: 70px;
+  height: 70px;
+  border: 6px solid var(--gray-lightest);
+  border-top: 6px solid var(--black);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
@@ -1010,17 +1590,19 @@ export default {
 }
 
 .loading-container p {
-  color: #6b7280;
-  font-size: 1.1rem;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+  font-weight: 600;
   margin-bottom: 0.5rem;
 }
 
 /* 프로그레스 바 컨테이너 */
 .progress-container {
-  width: 300px;
-  height: 8px;
-  background: rgba(59, 130, 246, 0.1);
-  border-radius: 4px;
+  width: 400px;
+  max-width: 90%;
+  height: 10px;
+  background: var(--gray-lightest);
+  border-radius: 10px;
   overflow: hidden;
   margin: 1rem auto;
 }
@@ -1028,15 +1610,32 @@ export default {
 /* 프로그레스 바 */
 .progress-bar {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6, #2563eb);
-  border-radius: 4px;
+  background: var(--black);
+  border-radius: 10px;
   transition: width 0.3s ease-out;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .estimated-time {
-  font-size: 0.9rem;
-  color: #6b7280;
+  font-size: 1rem;
+  color: var(--text-secondary);
   font-style: italic;
   margin-top: 0.5rem;
 }
@@ -1048,21 +1647,22 @@ export default {
   align-items: center;
   justify-content: center;
   min-height: 60vh;
-  gap: 1.5rem;
+  gap: 2rem;
   text-align: center;
-  padding: 3rem 2rem;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-  max-width: 700px;
-  margin: 2rem auto;
-  animation: slideDown 0.3s ease-out;
+  padding: 4rem 3rem;
+  background: var(--bg-card);
+  border-radius: 20px;
+  border: 2px solid rgba(239, 68, 68, 0.2);
+  box-shadow: var(--shadow-lg);
+  max-width: 800px;
+  margin: 3rem auto;
+  animation: slideDown 0.5s ease-out;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-10px);
+    transform: translateY(-30px);
   }
   to {
     opacity: 1;
@@ -1071,7 +1671,7 @@ export default {
 }
 
 .error-icon {
-  font-size: 4rem;
+  font-size: 5rem;
 }
 
 .error-content {
@@ -1079,114 +1679,117 @@ export default {
 }
 
 .error-container h2 {
-  color: #dc2626;
-  margin-bottom: 1rem;
-  font-size: 1.5rem;
+  color: var(--error);
+  margin-bottom: 1.25rem;
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
 .error-message {
-  color: #991b1b;
-  font-size: 1rem;
-  line-height: 1.6;
-  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 1.25rem;
 }
 
 .error-solution {
-  color: #7c2d12;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  background: rgba(220, 38, 38, 0.1);
-  padding: 1rem;
-  border-radius: 8px;
-  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  line-height: 1.6;
+  background: rgba(239, 68, 68, 0.05);
+  padding: 1.5rem;
+  border-radius: 12px;
+  margin-top: 1.25rem;
   text-align: left;
+  border-left: 4px solid var(--error);
 }
 
 .error-actions {
   display: flex;
-  gap: 1rem;
+  gap: 1.25rem;
   justify-content: center;
   flex-wrap: wrap;
-  margin-top: 1rem;
+  margin-top: 1.5rem;
 }
 
 .retry-btn {
-  background: #3b82f6;
+  background: var(--black);
   color: white;
   border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 8px;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all var(--transition-normal);
+  box-shadow: var(--shadow-sm);
 }
 
 .retry-btn:hover:not(:disabled) {
-  background: #2563eb;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: var(--shadow-hover);
+  background: var(--black-soft);
 }
 
 .retry-btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
+  background: var(--gray-light);
 }
 
 .back-btn {
-  background: #6b7280;
-  color: white;
-  border: none;
-  padding: 0.75rem 2rem;
-  border-radius: 8px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--gray-lighter);
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all var(--transition-normal);
 }
 
 .back-btn:hover {
-  background: #4b5563;
+  background: var(--gray-lighter);
+  border-color: var(--gray-light);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
-.evaluation-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
 
 .eval-btn {
-  padding: 0.75rem 1.5rem;
+  padding: 1.25rem 1.75rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
+  transition: all var(--transition-normal);
 }
 
 .eval-btn.primary {
-  background: #3b82f6;
+  background: var(--black);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .eval-btn.primary:hover {
-  background: #2563eb;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: var(--shadow-hover);
+  background: var(--black-soft);
 }
 
 .eval-btn.secondary {
-  background: #ef4444;
-  color: white;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--gray-lighter);
 }
 
 .eval-btn.secondary:hover {
-  background: #dc2626;
+  background: var(--gray-lighter);
+  border-color: var(--gray-light);
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+  box-shadow: var(--shadow-md);
 }
 
 /* 모달 스타일 */
@@ -1196,12 +1799,14 @@ export default {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.3s ease-out;
+  animation: fadeIn 0.4s ease-out;
 }
 
 @keyframes fadeIn {
@@ -1214,24 +1819,25 @@ export default {
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
+  background: var(--bg-card);
+  border: 1px solid var(--gray-lighter);
+  border-radius: 20px;
   width: 90%;
-  max-width: 500px;
+  max-width: 550px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease-out;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp 0.4s ease-out;
 }
 
 @keyframes slideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(50px) scale(0.9);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -1239,220 +1845,243 @@ export default {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 1px solid #e5e7eb;
+  padding: 2rem;
+  border-bottom: 1px solid var(--gray-lightest);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #1f2937;
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--black);
+  letter-spacing: -0.3px;
 }
 
 .modal-close {
-  background: none;
+  background: var(--gray-lightest);
   border: none;
   font-size: 2rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
+  border-radius: 10px;
+  transition: all var(--transition-fast);
 }
 
 .modal-close:hover {
-  background: #f3f4f6;
-  color: #1f2937;
+  background: var(--gray-lighter);
+  color: var(--black);
+  transform: rotate(90deg);
 }
 
 .modal-body {
-  padding: 1.5rem;
+  padding: 2rem;
 }
 
 .modal-body label {
   display: block;
   font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 0.75rem;
+  color: var(--black);
+  margin-bottom: 1rem;
+  font-size: 1.05rem;
 }
 
 /* 평가 섹션 */
 .rating-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .rating-stars {
   display: flex;
-  gap: 0.5rem;
-  margin-bottom: 0.5rem;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .star-btn {
-  background: none;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
-  width: 48px;
-  height: 48px;
-  font-size: 1.5rem;
+  background: var(--bg-tertiary);
+  border: 2px solid var(--gray-lighter);
+  border-radius: 12px;
+  width: 54px;
+  height: 54px;
+  font-size: 1.75rem;
   cursor: pointer;
-  transition: all 0.2s;
-  color: #d1d5db;
+  transition: all var(--transition-fast);
+  color: var(--text-muted);
 }
 
 .star-btn:hover {
-  border-color: #f59e0b;
-  transform: scale(1.1);
+  border-color: var(--warning);
+  background: rgba(245, 158, 11, 0.1);
+  transform: scale(1.15);
 }
 
 .star-btn.active {
-  border-color: #f59e0b;
-  background: #fef3c7;
-  color: #f59e0b;
+  border-color: var(--warning);
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--warning);
 }
 
 .rating-text {
-  color: #6b7280;
-  font-size: 0.9rem;
-  margin-top: 0.5rem;
+  color: var(--text-secondary);
+  font-size: 1rem;
+  margin-top: 0.75rem;
+  font-weight: 500;
 }
 
 .feedback-section {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .feedback-input,
 .report-input {
   width: 100%;
-  padding: 0.75rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--gray-lighter);
+  border-radius: 12px;
   font-size: 1rem;
   font-family: inherit;
   resize: vertical;
-  transition: border-color 0.2s;
+  transition: all var(--transition-normal);
   box-sizing: border-box;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.feedback-input::placeholder,
+.report-input::placeholder {
+  color: var(--text-muted);
 }
 
 .feedback-input:focus,
 .report-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: var(--black);
+  box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.05);
+  background: var(--bg-secondary);
 }
 
 /* 신고 섹션 */
 .report-reason-section {
-  margin-bottom: 1.5rem;
+  margin-bottom: 2rem;
 }
 
 .reason-options {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 1rem;
 }
 
 .reason-option {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  border: 2px solid #e5e7eb;
-  border-radius: 8px;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--gray-lighter);
+  border-radius: 12px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
+  background: var(--bg-tertiary);
 }
 
 .reason-option:hover {
-  border-color: #3b82f6;
-  background: #f0f9ff;
+  border-color: var(--black);
+  background: var(--bg-secondary);
+  transform: translateX(5px);
 }
 
 .reason-option input[type="radio"] {
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   cursor: pointer;
+  accent-color: var(--black);
 }
 
 .reason-option input[type="radio"]:checked + span {
-  font-weight: 600;
-  color: #3b82f6;
+  font-weight: 700;
+  color: var(--black);
 }
 
 .reason-option span {
   flex: 1;
-  color: #1f2937;
+  color: var(--text-primary);
+  font-weight: 500;
 }
 
 .report-description-section {
-  margin-bottom: 1rem;
+  margin-bottom: 1.5rem;
 }
 
 .modal-footer {
   display: flex;
   justify-content: flex-end;
-  gap: 1rem;
-  padding: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  gap: 1.25rem;
+  padding: 2rem;
+  border-top: 1px solid var(--gray-lightest);
 }
 
 .btn-cancel,
 .btn-submit {
-  padding: 0.75rem 1.5rem;
+  padding: 1rem 2rem;
   border: none;
-  border-radius: 8px;
+  border-radius: 12px;
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-normal);
 }
 
 .btn-cancel {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--gray-lighter);
 }
 
 .btn-cancel:hover {
-  background: #e5e7eb;
+  background: var(--gray-lighter);
+  border-color: var(--gray-light);
+  transform: translateY(-2px);
 }
 
 .btn-submit {
-  background: #3b82f6;
+  background: var(--black);
   color: white;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn-submit:hover:not(:disabled) {
-  background: #2563eb;
   transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: var(--shadow-hover);
+  background: var(--black-soft);
 }
 
 .btn-submit:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background: var(--gray-light);
 }
 
 /* 토스트 메시지 */
 .toast {
   position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  padding: 1rem 1.5rem;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  bottom: 2.5rem;
+  right: 2.5rem;
+  padding: 1.25rem 2rem;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
   z-index: 2000;
-  animation: slideInRight 0.3s ease-out;
-  max-width: 400px;
+  animation: slideInRight 0.4s ease-out;
+  max-width: 450px;
 }
 
 @keyframes slideInRight {
   from {
     opacity: 0;
-    transform: translateX(100px);
+    transform: translateX(150px);
   }
   to {
     opacity: 1;
@@ -1461,50 +2090,223 @@ export default {
 }
 
 .toast.success {
-  background: #10b981;
+  background: var(--success);
   color: white;
-  font-weight: 500;
-}
-
-.eval-btn {
-  padding: 1rem;
-  border-radius: 12px;
   font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-}
-
-.eval-btn.primary {
-  background: #3b82f6;
-  color: white;
-}
-
-.eval-btn.primary:hover {
-  background: #2563eb;
-}
-
-.eval-btn.secondary {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.eval-btn.secondary:hover {
-  background: #e5e7eb;
+  font-size: 1.05rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 @media (max-width: 1024px) {
   .content {
-    grid-template-columns: 1fr;
+    padding: 2rem 1.5rem;
   }
   
   .reliability-score {
     flex-direction: column;
     text-align: center;
+    gap: 1.5rem;
+  }
+
+  .score-description {
+    flex-direction: column;
+    text-align: center;
   }
   
   .analysis-cards {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+  }
+
+  .reliability-section {
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .analysis-details {
+    margin-bottom: 2rem;
+  }
+
+  .related-articles-section {
+    padding: 2rem 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .history-section {
+    margin-bottom: 2rem;
+  }
+
+  .evaluation-section-wrapper {
+    padding: 2rem 1.5rem;
+    margin-top: 1.5rem;
+  }
+
+  .loading-container,
+  .error-container {
+    padding: 3rem 2rem;
+    margin: 2rem 1rem;
+  }
+
+  .modal-content {
+    width: 95%;
+  }
+
+  .toast {
+    bottom: 1.5rem;
+    right: 1.5rem;
+    left: 1.5rem;
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .header-content {
+    padding: 0 1.5rem;
+  }
+
+  .nav {
+    gap: 1rem;
+  }
+
+  .nav-link {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.9rem;
+  }
+
+  .reliability-section h2,
+  .analysis-details h2 {
+    font-size: 1.5rem;
+  }
+
+  .score-circle {
+    width: 120px;
+    height: 120px;
+  }
+
+  .score-number {
+    font-size: 2.5rem;
+  }
+
+  .analysis-cards {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .analysis-card {
+    padding: 0;
+  }
+
+  .card-header {
+    padding: 1rem 1rem 0.75rem;
+    flex-wrap: wrap;
+  }
+
+  .card-title-section {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-title-section h3 {
+    font-size: 0.9rem;
+  }
+
+  .card-content {
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .card-icon-wrapper {
+    width: 40px;
+    height: 40px;
+  }
+
+  .card-icon {
+    font-size: 1.25rem;
+  }
+
+  .score-circle-small {
+    width: 36px;
+    height: 36px;
+  }
+
+  .score-number-small {
+    font-size: 0.8rem;
+  }
+
+  .reliability-section {
+    padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .analysis-details {
+    margin-bottom: 1.5rem;
+  }
+
+  .analysis-details h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .related-articles-section {
+    padding: 1.5rem 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .related-articles-section h2 {
+    font-size: 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .history-section {
+    margin-bottom: 1.5rem;
+  }
+
+  .evaluation-section-wrapper {
+    padding: 1.5rem 1.25rem;
+    margin-top: 1rem;
+  }
+
+  .history-link-btn {
+    padding: 0.875rem 1.5rem;
+    font-size: 0.95rem;
+  }
+
+  .evaluation-section {
+    flex-direction: column;
+  }
+
+  .evaluation-section {
+    gap: 1rem;
+  }
+
+  .eval-btn {
+    padding: 1rem 1.5rem;
+  }
+
+  .modal-body,
+  .modal-header,
+  .modal-footer {
+    padding: 1.5rem;
+  }
+
+  .rating-stars {
+    gap: 0.5rem;
+  }
+
+  .star-btn {
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+  }
+
+  .error-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .retry-btn,
+  .back-btn {
+    width: 100%;
   }
 }
 </style>
