@@ -8,7 +8,9 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000
 
 // 모킹 모드 활성화 (백엔드 연결 없이 프론트엔드 개발용)
 // true로 설정하면 실제 API 호출 대신 모킹 데이터를 반환합니다
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true' || true // 기본값: true (모킹 모드)
+// 환경 변수 VITE_USE_MOCK_DATA가 'true'일 때만 모킹 모드 활성화
+// ⚠️ 실제 백엔드 연결을 위해 false로 설정됨
+const USE_MOCK_DATA = false // 실제 백엔드 데이터 사용
 
 /**
  * 신뢰도 점수 계산
@@ -257,6 +259,70 @@ export const analyzeNews = async (url, useCache = true) => {
       }
       // success가 true면 data 필드 반환
       console.log('API 응답 성공:', data)
+      
+      // 백엔드가 detailed_scores 형식으로 응답하는 경우 프론트엔드 형식으로 변환
+      if (data.data && data.data.detailed_scores) {
+        const backendData = data.data
+        const detailedScores = backendData.detailed_scores
+        
+        // 프론트엔드 형식으로 변환
+        const formattedData = {
+          success: true,
+          data: {
+            reliability_score: backendData.final_analysis?.final_score || 50,
+            is_fake: (backendData.final_analysis?.final_score || 50) < 50,
+            metadata: {
+              publisher: backendData.publisher_name || '정보 없음',
+              publish_date: backendData.published_date || null,
+              article_title: backendData.scraped_title || '정보 없음',
+              article_content: backendData.scraped_content || ''
+            },
+            analysis_details: {
+              // GPT 의견 및 점수
+              gpt_opinion: detailedScores.gpt_analysis?.reason || '',
+              gpt_score: detailedScores.gpt_analysis?.score || 50,
+              
+              // AI 모델 예측
+              ai_prediction: {
+                prediction: detailedScores.ai_model?.prediction === 'Fake' ? 'Fake' : 'True',
+                fake_percentage: detailedScores.ai_model?.fake_percentage || 0,
+                true_percentage: detailedScores.ai_model?.true_percentage || 0
+              },
+              ai_model_score: detailedScores.ai_model?.score || 50,
+              
+              // 미디어 신뢰도
+              media_trust: {
+                trust_score: detailedScores.media_trust?.score || 60,
+                reliability: detailedScores.media_trust?.rank ? 'High' : 'Medium',
+                rank: detailedScores.media_trust?.rank,
+                category: detailedScores.media_trust?.category
+              },
+              
+              // 발행일 점수
+              publish_date_score: detailedScores.date_freshness?.score || 70,
+              
+              // 자극적인 단어
+              sensational_words: detailedScores.sensational_check?.detected_words || [],
+              sensational_words_score: detailedScores.sensational_check?.score || 100,
+              
+              // 광고성/상업성
+              advertisement: detailedScores.commercial_check?.is_commercial || false,
+              advertisement_score: detailedScores.commercial_check?.score || 100,
+              
+              // 크로스 체크
+              cross_check: {
+                verified_sources: detailedScores.cross_check?.consistency === '높음' ? 5 : 
+                                 detailedScores.cross_check?.consistency === '보통' ? 3 : 1,
+                status: detailedScores.cross_check?.consistency === '높음' ? 'verified' : 'unverified'
+              },
+              cross_check_score: detailedScores.cross_check?.score || 70
+            }
+          }
+        }
+        console.log('API 응답 성공 (변환됨 - detailed_scores):', formattedData)
+        return formattedData
+      }
+      
       return data
     }
     
@@ -275,9 +341,37 @@ export const analyzeNews = async (url, useCache = true) => {
             article_title: data.scraped_title || '정보 없음',
             article_content: data.scraped_content || ''
           },
-          analysis_details: {
+          // 백엔드가 analysis_details를 제공하면 그대로 사용
+          // 없으면 백엔드 응답의 루트 레벨 필드들을 analysis_details로 병합
+          analysis_details: data.analysis_details ? {
+            ...data.analysis_details,
+            // analysis_details에 없는 필드가 루트 레벨에 있으면 병합
+            ai_prediction: data.analysis_details.ai_prediction || data.ai_prediction || null,
+            media_trust: data.analysis_details.media_trust || data.media_trust || null,
+            gpt_opinion: data.analysis_details.gpt_opinion || data.gpt_opinion || null,
+            gpt_score: data.analysis_details.gpt_score !== undefined ? data.analysis_details.gpt_score : (data.gpt_score || null),
+            ai_model_score: data.analysis_details.ai_model_score !== undefined ? data.analysis_details.ai_model_score : (data.ai_model_score || null),
+            publish_date_score: data.analysis_details.publish_date_score !== undefined ? data.analysis_details.publish_date_score : (data.publish_date_score || null),
+            sensational_words: data.analysis_details.sensational_words || data.sensational_words || null,
+            sensational_words_score: data.analysis_details.sensational_words_score !== undefined ? data.analysis_details.sensational_words_score : (data.sensational_words_score || null),
+            advertisement: data.analysis_details.advertisement || data.advertisement || null,
+            advertisement_score: data.analysis_details.advertisement_score !== undefined ? data.analysis_details.advertisement_score : (data.advertisement_score || null),
+            cross_check: data.analysis_details.cross_check || data.cross_check || null,
+            cross_check_score: data.analysis_details.cross_check_score !== undefined ? data.analysis_details.cross_check_score : (data.cross_check_score || null)
+          } : {
+            // analysis_details가 없으면 루트 레벨 필드들을 사용
             ai_prediction: data.ai_prediction || null,
-            media_trust: data.media_trust || null
+            media_trust: data.media_trust || null,
+            gpt_opinion: data.gpt_opinion || null,
+            gpt_score: data.gpt_score || null,
+            ai_model_score: data.ai_model_score || null,
+            publish_date_score: data.publish_date_score || null,
+            sensational_words: data.sensational_words || null,
+            sensational_words_score: data.sensational_words_score || null,
+            advertisement: data.advertisement || null,
+            advertisement_score: data.advertisement_score || null,
+            cross_check: data.cross_check || null,
+            cross_check_score: data.cross_check_score || null
           }
         }
       }
@@ -300,9 +394,37 @@ export const analyzeNews = async (url, useCache = true) => {
             article_title: backendData.scraped_title || '정보 없음',
             article_content: backendData.scraped_content || ''
           },
-          analysis_details: {
+          // 백엔드가 analysis_details를 제공하면 그대로 사용
+          // 없으면 백엔드 응답의 루트 레벨 필드들을 analysis_details로 병합
+          analysis_details: backendData.analysis_details ? {
+            ...backendData.analysis_details,
+            // analysis_details에 없는 필드가 루트 레벨에 있으면 병합
+            ai_prediction: backendData.analysis_details.ai_prediction || backendData.ai_prediction || null,
+            media_trust: backendData.analysis_details.media_trust || backendData.media_trust || null,
+            gpt_opinion: backendData.analysis_details.gpt_opinion || backendData.gpt_opinion || null,
+            gpt_score: backendData.analysis_details.gpt_score !== undefined ? backendData.analysis_details.gpt_score : (backendData.gpt_score || null),
+            ai_model_score: backendData.analysis_details.ai_model_score !== undefined ? backendData.analysis_details.ai_model_score : (backendData.ai_model_score || null),
+            publish_date_score: backendData.analysis_details.publish_date_score !== undefined ? backendData.analysis_details.publish_date_score : (backendData.publish_date_score || null),
+            sensational_words: backendData.analysis_details.sensational_words || backendData.sensational_words || null,
+            sensational_words_score: backendData.analysis_details.sensational_words_score !== undefined ? backendData.analysis_details.sensational_words_score : (backendData.sensational_words_score || null),
+            advertisement: backendData.analysis_details.advertisement || backendData.advertisement || null,
+            advertisement_score: backendData.analysis_details.advertisement_score !== undefined ? backendData.analysis_details.advertisement_score : (backendData.advertisement_score || null),
+            cross_check: backendData.analysis_details.cross_check || backendData.cross_check || null,
+            cross_check_score: backendData.analysis_details.cross_check_score !== undefined ? backendData.analysis_details.cross_check_score : (backendData.cross_check_score || null)
+          } : {
+            // analysis_details가 없으면 루트 레벨 필드들을 사용
             ai_prediction: backendData.ai_prediction || null,
-            media_trust: backendData.media_trust || null
+            media_trust: backendData.media_trust || null,
+            gpt_opinion: backendData.gpt_opinion || null,
+            gpt_score: backendData.gpt_score || null,
+            ai_model_score: backendData.ai_model_score || null,
+            publish_date_score: backendData.publish_date_score || null,
+            sensational_words: backendData.sensational_words || null,
+            sensational_words_score: backendData.sensational_words_score || null,
+            advertisement: backendData.advertisement || null,
+            advertisement_score: backendData.advertisement_score || null,
+            cross_check: backendData.cross_check || null,
+            cross_check_score: backendData.cross_check_score || null
           }
         }
       }
