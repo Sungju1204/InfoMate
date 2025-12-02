@@ -1,0 +1,10 @@
+[33mb245c6a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m 상세 분석 내용 프론트,백엔드 연결
+[33m1312cb1[m 재수정
+[33me838b2c[m 추가 수정
+[33ma83408e[m 평가지표 및 배포 수정
+[33mbed3ab4[m 상세 분석 내역 내용 추가, 평가 기록 보기 버튼 배치 이동
+[33m5d69d04[m[33m ([m[1;31morigin/front-end[m[33m, [m[1;32mfront-end[m[33m)[m Merge origin/main into front-end
+[33m5ea4c59[m refactor: 폴더 구조 정리 및 환경변수 수정
+[33m5ad7639[m Update and rename frontend/supabase.js to frontend/new/supabase.js
+[33m5651cbc[m Update and rename frontend/package.json to frontend/new/package.json
+[33mdb0d590[m Update and rename frontend/package-lock.json to frontend/new/package-lock.json

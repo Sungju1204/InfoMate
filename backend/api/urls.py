@@ -5,6 +5,6 @@ from . import views  # views.py 파일 import
 
 
 urlpatterns = [
-    # ★★★ /api/analyze (슬래시 없이) 요청을 views.AnalyzeView로 연결합니다. ★★★
-    path('analyze', views.AnalyzeView.as_view(), name='analyze_api'),
+    # ★★★ /api/analyze/ 요청을 views.AnalyzeView로 연결합니다. ★★★
+    path('analyze/', views.AnalyzeView.as_view(), name='analyze_api'),
 ]

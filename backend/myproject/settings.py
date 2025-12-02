@@ -11,8 +11,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # .env 파일 로드
 load_dotenv()
 
+<<<<<<< HEAD
 # SECRET_KEY 가져오기 (없으면 에러 방지용 임시 키 사용 - 배포 시 .env 확인 필수)
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-fallback-key-for-debug')
+=======
+load_dotenv() # .env 파일 로드
+
+SECRET_KEY = os.environ.get('SECRET_KEY') or 'django-insecure-dev-key-change-in-production-12345'
+
+# Quick-start development settings - unsuitable for production
+>>>>>>> e19c1c2865a51bb953d7c7fa5dcc781e39f58d12
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True

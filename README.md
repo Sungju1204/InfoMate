@@ -26,6 +26,9 @@ Vue.js로 구현된 가짜뉴스 판독기 프론트엔드 초안입니다.
 ## 설치 및 실행
 
 ```bash
+# 프론트엔드 디렉토리로 이동
+cd frontend
+
 # 의존성 설치
 npm install
 
@@ -43,16 +46,31 @@ npm run preview
 
 ```
 InfoMate/
-├── src/
-│   ├── components/
-│   │   ├── Home.vue              # 메인 화면
-│   │   └── AnalysisResult.vue   # 분석 결과 페이지
-│   ├── App.vue                   # 루트 컴포넌트
-│   ├── main.js                   # 애플리케이션 진입점
-│   └── style.css                 # 전역 스타일
-├── index.html                    # HTML 템플릿
-├── package.json                  # 프로젝트 설정
-└── vite.config.js               # Vite 설정
+├── backend/                      # Django 백엔드
+│   ├── api/                      # API 앱
+│   ├── manage.py
+│   └── requirements.txt
+├── frontend/                      # Vue.js 프론트엔드
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Home.vue              # 메인 화면
+│   │   │   ├── AnalysisResult.vue   # 분석 결과 페이지
+│   │   │   └── History.vue           # 평가 기록 페이지
+│   │   ├── services/
+│   │   │   ├── api.js                # API 통신
+│   │   │   ├── evaluationService.js # 평가 서비스
+│   │   │   └── historyService.js    # 히스토리 서비스
+│   │   ├── utils/
+│   │   │   ├── algorithms.js        # 알고리즘 유틸리티
+│   │   │   ├── dataStructures.js    # 자료구조 유틸리티
+│   │   │   └── urlParser.js         # URL 파서
+│   │   ├── App.vue                  # 루트 컴포넌트
+│   │   ├── main.js                  # 애플리케이션 진입점
+│   │   └── style.css                # 전역 스타일
+│   ├── index.html                  # HTML 템플릿
+│   ├── package.json                # 프로젝트 설정
+│   └── vite.config.js             # Vite 설정
+└── README.md
 ```
 
 ## 디자인 특징
@@ -62,10 +80,10 @@ InfoMate/
 - **직관적인 UX**: 사용자 친화적인 인터페이스
 - **시각적 피드백**: 호버 효과와 애니메이션
 
-## 향후 개발 계획
+## 개발 상태
 
-- 백엔드 API 연동
-- 실제 뉴스 분석 기능 구현
-- 사용자 인증 시스템
-- 분석 히스토리 저장
-- 소셜 공유 기능
+- ✅ 백엔드 API 연동 완료
+- ✅ 실제 뉴스 분석 기능 구현 완료
+- ✅ 분석 히스토리 저장 기능 구현
+- 🔄 사용자 인증 시스템 (진행 중)
+- 📋 소셜 공유 기능 (계획 중)
