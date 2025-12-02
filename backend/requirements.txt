@@ -9,4 +9,4 @@ python-dotenv
 playwright
 openai
 torch
-transformers
+transformers>=4.36.0
