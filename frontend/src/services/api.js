@@ -4,7 +4,8 @@
 // 환경 변수에서 가져오거나 기본값 사용
 // 로컬 개발: http://localhost:8000/api/analyze
 // ngrok 주소: https://noncrucial-filomena-undeliberately.ngrok-free.dev/api/analyze/
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/analyze'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://134.185.99.4/api/analyze'
+
 
 // 모킹 모드 활성화 (백엔드 연결 없이 프론트엔드 개발용)
 // true로 설정하면 실제 API 호출 대신 모킹 데이터를 반환합니다
