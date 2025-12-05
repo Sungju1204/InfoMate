@@ -263,22 +263,41 @@ def find_article_content(soup):
     title = ""
     text = ""
     
-    title_tag = soup.select_one('h2.media_end_head_headline') or soup.select_one('h3.tit_view')
-    if title_tag: title = title_tag.get_text().strip()
-    if not title and soup.find('h1'): title = soup.find('h1').get_text().strip()
+    # 1. 제목 추출 (조선일보 및 일반 사이트 호환성 강화)
+    # 조선일보는 보통 h1 태그를 씁니다.
+    if soup.find('h1'): 
+        title = soup.find('h1').get_text().strip()
+    
+    if not title:
+        title_tag = soup.select_one('h2.media_end_head_headline') or soup.select_one('h3.tit_view')
+        if title_tag: title = title_tag.get_text().strip()
+        
     if not title:
         og_title = soup.find('meta', {'property': 'og:title'})
         if og_title and og_title.get('content'): title = og_title['content'].strip()
 
-    article_body = soup.select_one('div#dic_area') or soup.select_one('div.article_view') or soup.find('article')
+    # 2. 본문 추출 (조선일보 선택자 추가)
+    # 우선순위: 네이버 -> 다음 -> 조선일보(section.article-body) -> 일반 article
+    article_body = (
+        soup.select_one('div#dic_area') or       # 네이버
+        soup.select_one('div.article_view') or   # 다음
+        soup.select_one('section.article-body') or # 조선일보 (핵심!)
+        soup.select_one('div.news_body_id') or   # 일부 언론사
+        soup.find('article')                     # 일반적인 HTML5 사이트
+    )
+
     if article_body:
+        # 불필요한 스크립트나 스타일 제거
+        for script in article_body(["script", "style", "iframe"]):
+            script.decompose()
         text = article_body.get_text(separator=" ").strip()
     else:
+        # 만약 위의 container를 다 못 찾으면, 본문이라고 추정되는 긴 p 태그들을 긁어모음
         paragraphs = soup.find_all('p')
-        text = " ".join(p.get_text().strip() for p in paragraphs if p.get_text())
+        # 너무 짧은 문장(메뉴 등)은 제외하고 50자 이상인 것만 수집
+        text = " ".join(p.get_text().strip() for p in paragraphs if len(p.get_text().strip()) > 30)
 
     return title, text
-
 
 # --- 4. AI 예측 (로컬) ---
 def get_fake_news_prediction(title, text):
