@@ -317,7 +317,9 @@ export const analyzeNews = async (url, useCache = true) => {
                 status: detailedScores.cross_check?.consistency === '높음' ? 'verified' : 'unverified'
               },
               cross_check_score: detailedScores.cross_check?.score || 70
-            }
+            },
+
+            related_articles: backendData.related_articles || data.related_articles || []
           }
         }
         console.log('API 응답 성공 (변환됨 - detailed_scores):', formattedData)
@@ -373,7 +375,9 @@ export const analyzeNews = async (url, useCache = true) => {
             advertisement_score: data.advertisement_score || null,
             cross_check: data.cross_check || null,
             cross_check_score: data.cross_check_score || null
-          }
+          },
+
+          related_articles: backendData.related_articles || data.related_articles || []
         }
       }
       console.log('API 응답 성공 (변환됨):', formattedData)
@@ -426,7 +430,9 @@ export const analyzeNews = async (url, useCache = true) => {
             advertisement_score: backendData.advertisement_score || null,
             cross_check: backendData.cross_check || null,
             cross_check_score: backendData.cross_check_score || null
-          }
+          },
+
+          related_articles: backendData.related_articles || data.related_articles || []
         }
       }
       console.log('API 응답 성공 (data 필드에서 변환됨):', formattedData)

@@ -216,17 +216,27 @@
           </router-link>
         </section>
 
-        <!-- 관련 기사 섹션 -->
-        <section class="related-articles-section">
+<section class="related-articles-section">
           <h2>관련 기사</h2>
           <div class="article-list">
-            <div class="article-item" v-for="(article, index) in relatedArticles" :key="index">
-              <div class="article-thumbnail">📰</div>
-              <div class="article-content">
-                <h4>{{ article.title || '관련 뉴스 제목' }}</h4>
-                <p>{{ article.description || '관련 기사 설명...' }}</p>
+            <a 
+              v-for="(article, index) in relatedArticles" 
+              :key="index"
+              :href="article.url" 
+              target="_blank"
+              class="article-item"
+            >
+              <div class="article-thumbnail">
+                <img v-if="article.thumbnail" :src="article.thumbnail" alt="뉴스 썸네일" />
+                <span v-else>📰</span>
               </div>
-            </div>
+              
+              <div class="article-content">
+                <h4>{{ article.title }}</h4>
+                <p>{{ article.description }}</p>
+              </div>
+            </a>
+
             <div v-if="relatedArticles.length === 0" class="no-articles">
               관련 기사가 없습니다.
             </div>
@@ -575,80 +585,26 @@ export default {
      */
     findRelatedArticles() {
       if (!this.analysisResult) {
-        return
+        console.log('❌ analysisResult 없음');
+        return;
       }
 
-      // 1. 현재 기사의 키워드 추출 (문자열 알고리즘 사용)
-      const currentTitle = this.analysisResult.metadata?.article_title || ''
-      const currentPublisher = this.analysisResult.metadata?.publisher || ''
-      const currentKeywords = extractKeywords(currentTitle + ' ' + currentPublisher)
-
-      // 2. 그래프 생성
-      const articleGraph = new Graph()
-
-      // 3. 모든 분석 기록 가져오기
-      const allRecords = historyService.getAllRecords()
-
-      // 4. 현재 기사를 그래프에 추가
-      const currentArticleId = this.url
-      articleGraph.addVertex(currentArticleId)
-
-      // 5. 다른 기사들과의 관계 구축
-      for (const record of allRecords) {
-        // 현재 기사는 제외
-        if (record.url === this.url) {
-          continue
-        }
-
-        const recordTitle = record.data?.metadata?.article_title || ''
-        const recordPublisher = record.data?.metadata?.publisher || ''
-        const recordKeywords = extractKeywords(recordTitle + ' ' + recordPublisher)
-
-        // 6. 키워드 유사도 계산 (문자열 매칭 알고리즘 사용)
-        const similarity = this.calculateKeywordSimilarity(currentKeywords, recordKeywords)
-
-        // 7. 유사도가 일정 수준 이상이면 그래프에 간선 추가
-        if (similarity > 0.3) {
-          articleGraph.addVertex(record.url)
-          // 가중치는 유사도 (높을수록 더 관련있음)
-          articleGraph.addEdge(currentArticleId, record.url, similarity)
-        }
+      let articles = [];
+    
+      if (this.analysisResult.data && this.analysisResult.data.related_articles) {
+        articles = this.analysisResult.data.related_articles;
+      } else if (this.analysisResult.related_articles) {
+        articles = this.analysisResult.related_articles;
       }
 
-      // 8. DFS 알고리즘을 사용하여 관련 기사 탐색
-      // 최대 깊이 2로 제한하여 직접적으로 관련된 기사만 찾기
-      const relatedUrls = articleGraph.getConnectedVertices(currentArticleId, 2)
-
-      // 9. 관련 기사 정보 구성
-      this.relatedArticles = relatedUrls
-        .map(url => {
-          const record = historyService.getRecordByURL(url)
-          if (!record) return null
-
-          return {
-            title: record.data?.metadata?.article_title || '관련 뉴스',
-            description: `${record.data?.metadata?.publisher || '언론사'} - ${this.formatDate(record.analyzedAt)}`,
-            url: record.url,
-            score: record.data?.reliability_score || 0
-          }
-        })
-        .filter(article => article !== null)
-        .slice(0, 5) // 최대 5개만 표시
-
-      // 10. 추천 기사: 신뢰도가 높은 기사들
-      const allArticles = allRecords
-        .filter(record => record.url !== this.url)
-        .map(record => ({
-          title: record.data?.metadata?.article_title || '추천 기사',
-          description: `${record.data?.metadata?.publisher || '언론사'} - 신뢰도 ${record.data?.reliability_score || 0}점`,
-          url: record.url,
-          score: record.data?.reliability_score || 0
-        }))
-        .filter(article => article.score >= 70) // 신뢰도 70점 이상
-        .sort((a, b) => b.score - a.score) // 점수 높은 순으로 정렬
-        .slice(0, 3) // 최대 3개만 표시
-
-      this.recommendedArticles = allArticles
+      this.relatedArticles = articles.map(item => ({
+        title: item.title,
+        description: item.press || '언론사 정보 없음',
+        url: item.link,
+        thumbnail: item.thumbnail
+      }));
+    
+      this.recommendedArticles = [];
     },
 
     /**
@@ -1512,47 +1468,64 @@ export default {
   gap: 1rem;
 }
 
+/* 관련 기사 링크 스타일 보정 */
 .article-item {
-  display: flex;
-  gap: 1rem;
-  padding: 1rem;
-  border-radius: 12px;
-  transition: all var(--transition-normal);
+  text-decoration: none; /* 밑줄 제거 */
+  color: inherit;       /* 기본 글자색 유지 */
   cursor: pointer;
-  border: 1px solid transparent;
+  display: flex;        /* 가로 정렬 */
+  gap: 1rem;            /* 이미지와 글자 사이 간격 */
+  padding: 1rem;
+  border-radius: 8px;
+  transition: background 0.2s;
+  border: 1px solid transparent; /* 테두리 공간 확보 */
 }
 
 .article-item:hover {
-  background: var(--gray-lightest);
-  border-color: var(--gray-lighter);
-  transform: translateX(5px);
+  background: #f1f5f9;   /* 마우스 올렸을 때 배경색 */
+  border-color: #e2e8f0;
 }
 
+/* 썸네일 이미지 스타일 */
 .article-thumbnail {
-  font-size: 1.75rem;
-  width: 50px;
-  height: 50px;
+  flex-shrink: 0;       /*공간 부족해도 줄어들지 않음 */
+  width: 70px;          /* 너비 고정 */
+  height: 70px;         /* 높이 고정 */
+  border-radius: 8px;
+  background: #e2e8f0;  /* 이미지가 없을 때 회색 배경 */
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--gray-lightest);
-  border-radius: 12px;
+  overflow: hidden;     /* 둥근 모서리 밖으로 튀어나는 이미지 자르기 */
 }
 
+.article-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;    /* 비율 유지하며 꽉 채우기 */
+}
+
+.article-thumbnail span {
+  font-size: 2rem;      /* 아이콘 크기 */
+}
+
+/* 텍스트 줄임 처리 (제목이 너무 길 때) */
 .article-content h4 {
-  font-size: 0.95rem;
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
   font-weight: 600;
-  color: var(--text-primary);
-  margin-bottom: 0.5rem;
-  line-height: 1.4;
+  color: #1e293b;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* 두 줄까지만 표시 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .article-content p {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
+  margin: 0;
+  font-size: 0.875rem;
+  color: #64748b;
 }
-
 .no-articles {
   color: var(--text-muted);
   font-size: 0.95rem;

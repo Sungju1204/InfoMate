@@ -615,7 +615,7 @@ class AnalyzeView(APIView):
     throttle_classes = [AnonRateThrottle]
 
     def post(self, request, *args, **kwargs):
-        # 1. URL 및 데이터 준비
+        # 1. URL 파싱
         try:
             data = json.loads(request.body)
             url_to_check = data.get('url')
@@ -624,44 +624,82 @@ class AnalyzeView(APIView):
 
         domain = get_domain_from_url(url_to_check)
         
-        # 2. 크롤링 (requests 먼저 시도, 실패 시 Playwright 사용)
+# [수정 1] 변수 미리 초기화 (이 부분이 빠져서 에러가 난 겁니다!)
+        # ==========================================
+        title = ""
+        text_content = ""
         html = None
-        browser = None
-        
-        # 먼저 requests로 시도 (대부분의 뉴스 사이트는 이 방법으로 가능)
+        publisher_name = domain  # 기본값으로 도메인 설정
+        publish_date = None
+        # ==========================================
+
+        # =========================================================
+        # 1단계: 가벼운 requests 먼저 시도
+        # =========================================================
+        print(f"Attempting requests for: {url_to_check}")
         try:
             headers = {
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
-            response = requests.get(url_to_check, headers=headers, timeout=30)
-            response.raise_for_status()
-            html = response.text
+            response = requests.get(url_to_check, headers=headers, timeout=5) # 타임아웃 짧게 (안되면 빨리 포기하게)
+            
+            if response.status_code == 200:
+                html = response.text
+                soup = BeautifulSoup(html, "html.parser")
+                # 여기서 한 번 추출 시도해봄
+                title, text_content = find_article_content(soup)
+                publisher_name = find_publisher_name(soup, domain)
+                publish_date = find_publish_date(soup, url_to_check)
+                print(f"Requests 결과: 제목={bool(title)}, 본문길이={len(text_content)}")
         except Exception as e:
-            # requests로 실패하면 Playwright 시도
+            print(f"Requests 접속 에러 (무시하고 Playwright로 이동): {e}")
+
+        # =========================================================
+        # 2단계: requests가 실패했거나, '본문이 비어있으면' Playwright 출동 (핵심 변경!)
+        # =========================================================
+        if not title or len(text_content) < 50:
+            print("🚀 Requests로 본문 확보 실패 (동적 페이지 또는 차단). Playwright 가동!")
+            
             try:
                 with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    page = browser.new_page(user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36')
-                    page.goto(url_to_check, wait_until='domcontentloaded', timeout=90000)  
+                    # 봇 탐지 우회 옵션들
+                    browser = p.chromium.launch(
+                        headless=True, 
+                        args=["--disable-blink-features=AutomationControlled"]
+                    )
+                    
+                    # 모바일 User-Agent 사용 (PC보다 보안이 널널할 때가 많음)
+                    context = browser.new_context(
+                        user_agent='Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1'
+                    )
+                    page = context.new_page()
+                    
+                    print("Playwright: 페이지 접속 중...")
+                    # 타임아웃 60초
+                    page.goto(url_to_check, wait_until='domcontentloaded', timeout=60000)
+                    
+                    # ★★★ JS 실행 대기 (가장 중요) ★★★
+                    # 그냥 3초 멍때리면서 뉴스 본문이 로딩되길 기다림
+                    page.wait_for_timeout(3000)
+                    
                     html = page.content()
-            except Exception as playwright_error:
-                return JsonResponse({"success": False, "error": {"message": f"크롤링 오류: requests 실패 ({str(e)}), Playwright 실패 ({str(playwright_error)})"}}, status=500)
-            finally:
-                if browser: 
-                    try: browser.close() 
-                    except: pass
-        
-        if not html: 
-            return JsonResponse({"success": False, "error": {"message": "HTML 추출 실패"}}, status=500)
+                    print("Playwright: HTML 확보 완료")
+                    browser.close()
+                    
+                    # 다시 파싱 (이제 진짜 데이터가 들어있음)
+                    soup = BeautifulSoup(html, "html.parser")
+                    publisher_name = find_publisher_name(soup, domain) 
+                    publish_date = find_publish_date(soup, url_to_check)
+                    title, text_content = find_article_content(soup)
+                    
+                    
+            except Exception as e:
+                print(f"Playwright Error: {e}")
+                return JsonResponse({"success": False, "error": {"message": f"크롤링 최종 실패: {str(e)}"}}, status=500)
 
-        # 3. 데이터 추출
-        soup = BeautifulSoup(html, "html.parser")
-        publisher_name = find_publisher_name(soup, domain)
-        publish_date = find_publish_date(soup, url_to_check)
-        title, text_content = find_article_content(soup)
-
+        # 3. 최종 검사 (Playwright까지 썼는데도 없으면 진짜 없는 거임)
         if not title or len(text_content) < 50:
-            return JsonResponse({"success": False, "error": {"message": "본문 추출 실패"}}, status=400)
+            return JsonResponse({"success": False, "error": {"message": "본문 추출 실패 (봇 차단이 강력하거나 HTML 구조가 특이함)"}}, status=400)
 
         # 4. 모든 지표 분석 실행
         print("📊 분석 시작...")
